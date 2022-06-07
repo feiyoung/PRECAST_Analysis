@@ -1527,34 +1527,35 @@ plot_scatter(tsne2List[[1]], meta_data, label_name = 'cell_type', base_size=20,
 
 
 ##### 5c #####
+rawID <- c(10, 11, 1, 7, 17, 8, 15, 13, 3, 9,  4,  16,2, 6, 5, 14, 12)
+names(rawID) <- 1: 17
 load("housekeep_dat_degs_Hip2_merge70.rds")
 dat_degs$cluster <- factor(replace_ID(as.numeric(dat_degs$cluster), rawID = rawID), 
                            levels = 1:length(rawID))
 
 dat_degs <- dat_degs[order(dat_degs$cluster),]
-Idents(seuAll) <- factor(unlist(cluster_idrsc_renumber), levels = 1:17)
+load("seuAll_hip2_merge70.rds")
 library(dplyr)
+library(Seurat)
 n <- 5
 dat_degs %>%
   group_by(cluster) %>%
   top_n(n = n, wt = avg_log2FC) -> top10
-seu <-   seuAll      
+
 seu@assays$RNA@var.features <- row.names(seu)
 seu <- ScaleData(seu)
-seu[['RNA']]@data[1:4,1:4]
 seus <- subset(seu, downsample = 4000)
 color_id <- as.numeric(levels(Idents(seus)))
-seus[['RNA']]@data[1:4,1:4]
-sum(top10$gene %in%  row.names(seu))
 
 
 ## HeatMap
 p1 <- doHeatmap(seus, features = top10$gene, cell_label= "Domain",
-                grp_label = F, grp_color = cols_cluster[color_id],
+                grp_label = F, grp_color = cols_cluster_low_reso[color_id],
                 pt_size=6,slot = 'scale.data') + 
   theme(legend.text = element_text(size=16),
         legend.title = element_text(size=18, face='bold'),
         axis.text.y = element_text(size=7, face= "italic", family='serif'))
+
 ggsave(paste0('./Hip2All_merge70',"_top",n,"DEGs_heatmap_reOrder.pdf"), plot = p1, 
        width = 10, height = 8, units = "in", dpi = 1000)
 ##### 5d #####

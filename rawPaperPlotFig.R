@@ -1,5 +1,5 @@
 
-dir_current <- "E:\\Research paper\\IntegrateDRcluster\\PRECAST_Analysis\\"
+dir_current <- "E:\\Research paper\\IntegrateDRcluster\\AnalysisCode\\PRECAST_Analysis\\"
 
 source(paste0(dir_current, "//utility_funcs.R"))
 ##### 2a #####
@@ -365,12 +365,669 @@ p1 <- publish_gostplot(p, highlight_terms = label_terms,
                        filename=paste0("sample10_KEGG_SVGs_pathways.pdf"), 
                        width = 9, height =6)
 
+##### 3a #####
+object_delete <- setdiff(ls(), 'dir_current')
+rm(list=object_delete)
 
+setwd(paste0(dir_current, "dataFiles\\Liver8\\") )
+
+source(paste0(dir_current, "//utility_funcs.R"))
+
+load("metric_cluster_annotate_Liver8V2.rds")
+apply(ariMat, 2, median)
+cols_alpha2 <- c(cols_alpha, '#57A6D9')
+main_order_names2 <- c(main_order_names)
+main_order_names2[1] <- iDR_SC_newname
+
+p1 <- volinPlot_real(ariMat[,main_order_names2], cols = cols_alpha2)
+
+ggsave(file="./output_figs/volinPlot_ariMat_mouseLiver8.png", plot = p1,
+       width =5, height =5, units = "in", dpi = 800)
+
+p1 <- barPlot_real(ariVec[main_order_names2], cols = cols_alpha2)+theme_classic() + 
+  theme( axis.text.x = element_blank() ) + theme(text = element_text(size=20))
+ggsave(file="./output_figs/barPlot_ariVec_mouseLiver8.png", plot = p1,
+       width =5, height =5, units = "in", dpi = 800)
+
+load("MethodR4_batchRemovalMat_Liver8V2.rds")
+load("MethodPy5_batchRemovalMat_Liver8.rds")
+clisiMat <- cbind(clisiMat, clisiMat_py)
+ilisiMat <- cbind(ilisiMat, ilisiMat_py)
+
+p1 <- volinPlot_real(clisiMat[,main_order_names2], cols = cols_alpha2, ylabel='cLISI') + ylim(c(1,3))
+ggsave(file="./output_figs/volinPlot_cLISI_mouseLiver8.png", plot = p1,
+       width =5, height =5, units = "in", dpi = 800)
+p2 <- volinPlot_real(ilisiMat[,main_order_names2], ylabel = "iLISI",  cols = cols_alpha2)
+ggsave(file="./output_figs/volinPlot_iLISI_mouseLiver8.png", plot = p2,
+       width =5, height =5, units = "in", dpi = 800)
 
 ##### 3b #####
-rm(list=ls())
+load("hZtsneList_mouseLiver8.rds")
+
+library(ggthemes)
+palettes <- ggthemes_data[["tableau"]][["color-palettes"]][["regular"]]
+pal1 <- tableau_color_pal("Classic 20")
+max_n <- attr(pal1, "max_n")
+pal2 <- tableau_color_pal("Classic Blue-Red 12")
+max_n2 <- attr(pal2, "max_n")
+cols_pal <- c(pal1(max_n), pal2(max_n2)[c(1,3,8,12)]);
+idx_used <- c(6,5, 1, 4, 2 , 8,7)
+cols_cluster2 <- cols_pal[idx_used]
+
+## select colors
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+cols_sample <- gg_color_hue(8)
+
+
+pt_size_sample <- 0.5; pt_alpha_sample <- 0.8
+pt_size_cluster <- 0.5; pt_alpha_cluster <- 1
+base_axis_size <- 20
+
+library(ggplot2)
+str(hZtsneList)
+pList_sample <- list(); pList_cluster <- list()
+for(j in 1:length(hZtsneList)){
+  message('j = ', j)
+  
+  
+    
+    pList_sample[[j]] <- plot_scatter(hZtsneList[[j]], meta_data, label_name = 'sample',border_col="gray10", 
+                                      base_size=base_axis_size,palette_use=cols_sample, point_size = pt_size_sample, 
+                                      point_alpha = pt_alpha_sample,no_guides=T) + labs(x=NULL, y=NULL)
+    pList_cluster[[j]] <- plot_scatter(hZtsneList[[j]], meta_data, label_name = 'cluster',
+                                       base_size=20,border_col="gray10",
+                                       palette_use=cols_cluster2,
+                                       point_size = pt_size_cluster, 
+                                       point_alpha =pt_alpha_cluster,no_guides=T) + labs(x=NULL, y=NULL)
+    
+  
+  
+  
+  
+}
+names(pList_sample) <-names(pList_cluster) <-  names(hZtsneList)
+
+library(cowplot)
+#pList_sample[[1]]
+subnames <- c("iDR-SC" ,"Seurat V3", "fastMNN","MEFISTO", "Uncorrected")
+p12 <- plot_grid(plotlist =pList_sample[subnames], nrow=1, ncol=5)
+ggsave(file="./output_figs/Liver8_tsne_sample_heatmap.png", plot = p12,
+       width = 25, height =5, units = "in", dpi = 200)
+p1 <- pList_cluster[[1]]
+pList_cluster[[1]] <- Seurat::LabelClusters(p1, id='cluster', repel = T, 
+                                            size = 9, color = 'white', 
+                                            box = T, position = "nearest")
+p12 <- plot_grid(plotlist =pList_cluster[subnames], nrow=1, ncol=5)
+ggsave(file="./output_figs/Liver8_tsne_cluster_heatmap.png", plot = p12,
+       width = 25, height =5, units = "in", dpi = 200)
+
+##### 3c #####
+library(Seurat)
+seu <- seuAll
+seu@assays$RNA@var.features <- row.names(seu)
+seu <- ScaleData(seu)
+cols_cluster <- c("#98df8a", "#2ca02c", "#1f77b4", "#ffbb78", "#aec7e8", "#ff9896", "#d62728")
+color_id <- as.numeric(levels(Idents(seu)))
+
+genes_use <- c("Cyp2e1", "Oat", "Cyp2c37", "Gulo", "Glul", "Slc1a2", 'Cyp2d9', "Gstm3", 
+               "Malat1", "Cox1","Hamp2", "Cyp3a44", "Gsn", "Dpt","Vim", "Tagln",  
+               "Cyp2f2", "Sds", "Hal", "Ctsc", "Aldh1b1", "Hsd17b13", "Spp1")
+
+p1 <- doHeatmap(seu, features = genes_use, cell_label= "Domain",
+                grp_label = F, grp_color = cols_cluster[color_id],
+                #disp.max = 2.1,
+                pt_size=6,slot = 'scale.data') + 
+  theme(legend.text = element_text(size=16),
+        legend.title = element_text(size=18, face='bold'),
+        axis.text.y = element_text(size=12, face= "italic", family='serif'))
+ggsave(paste0("./output_figs/Liver8All_usedGenesDEGs_heatmapV2.png"), plot = p1, width = 8, height = 6, units = "in", dpi = 1000)
+
+##### 3d #####
+load('MacR2Vec_reference1_mouseLiver.rds')
+names(MacR2Vec) <- main_order_names2
+p1 <- barPlot_real(MacR2Vec[main_order_names2], cols = cols_alpha2, ylabel = "McFadden's R^2")+theme_classic() + 
+  theme( axis.text.x = element_blank() ) + theme(text = element_text(size=20))
+p1
+
+
+##### 3e #####
+load("metadata_filter2List_mouseLiverST.rds")
+load("idrsc_cluster7_mouseLiver8.rds")
+posList <- lapply(metadata_filter2List, function(x){
+  y <- cbind(x$row, x$col)
+  row.names(y) <- row.names(x)
+  y
+} )
+color_pal = list("#CB181D","#EF3B2C","#FB6A4A","#FC9272","#FCBBA1","#1f77b4","#ff7f0e","#2ca02c","#c5b0d5")
+
+# sample 1: slice 1 to 3
+
+figure_list = list()
+for (slice_set in 1:3){
+  # slice_set <- 1
+  st_coord = posList[[slice_set]]
+  
+  norm_weights = read.csv(paste('./deconvolution_data/output_weights_mouseLiver8_st',slice_set,'.csv',sep=""),row.names=1)
+  
+  cluster_id = cbind(posList[[slice_set]],clusterList[[slice_set]])
+  colnames(cluster_id) <- c("row", "col", "y")
+  cluster_weight = merge(norm_weights,cluster_id,by = 0)
+  rownames(cluster_weight) = cluster_weight$Row.names
+  cluster_weight = cluster_weight[,-1]
+  
+  
+  
+  ct_set =  colnames(cluster_weight)[1:6]#[1:6] #"Hepatocyte_Alb.high" # "B.cell_Jchain.high" #
+  head(cluster_weight)
+  for(jj in 1: length(ct_set)){
+    ## jj <- 2
+    ct <- ct_set[jj]
+    plot_val = as.data.frame(cluster_weight[,ct])
+    rownames(plot_val) = rownames(cluster_weight)
+    colnames(plot_val) = colnames(cluster_weight)[ct]
+    barcodes = rownames(plot_val)
+    my_table = as.data.frame(cluster_id[barcodes, c(1,2)] )
+    my_table$Proportion = plot_val[barcodes,]
+    my_table$cluster = cluster_weight[barcodes,'y']
+    ylimit = c(0, 1)
+    
+    my_table$border_color = '#cccccc'
+    my_table$stroke = 0
+    
+    select_cluster = c(1,2)
+    for (i in select_cluster){
+      my_table[my_table$cluster==i,'stroke'] = 0.45
+    }
+    
+    for (i in 1:10){
+      my_table[my_table$cluster==i,"border_color"] = color_pal[i]
+    }
+    
+    table(my_table$cluster)
+    my_table$Proportion <- range01(my_table$Proportion)
+    if(ct ==  "Erythroid.cell_Hbb.bs.high"){
+      med <- quantile(my_table$Proportion, 0.987)
+    }else{
+      med <- quantile(my_table$Proportion, 0.94)
+    }
+    
+    my_table$Proportion[ my_table$Proportion > med] <- med
+    my_table$Proportion <- range01(my_table$Proportion)
+    plot <- ggplot(my_table, aes(x = row, y = col)) + 
+      geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 5,pch=21) +
+      scale_fill_gradientn(colors = c("#361A95","white", "#D62728")) +  # ,limits = ylimit,#FBA536
+      # scale_colour_gradient2(
+      #   low = "#361A95",
+      #   mid = "white",
+      #   high = "#FBA536", midpoint = med)+
+      scale_shape_identity() + scale_size_identity() + theme_classic() +
+      mytheme_graybox(base_size = 28) + scale_y_reverse() + theme(legend.position = 'none')
+    
+    figure_list[[((slice_set-1) * length(ct_set) + jj)]] <- plot #+ coord_fixed() # + xlim(xlim) + ylim(ylim)
+    
+  }
+}
+
+
+
+p12 <- cowplot::plot_grid(plotlist=figure_list, nrow=3, ncol=6, byrow=T)
+ggsave(file='output_figs/select_type_Sample1.png', plot = p12, 
+       width = 14, height = 6, units = "in", bg = 'white', dpi = 50,limitsize = F)
+
+##### 3f #####
+
+load("pseudotime_allspots_mouseLiver8V2.rds")
+load("hZtsneList_mouseLiver8.rds")
+pseudo.slingshot <- pseudo.slingshot2
+str(pseudo.slingshot2)
+tsne_idrsc <- hZtsneList[[1]]
+
+str(tsne_idrsc)
+dat1 <- data.frame(PC1=tsne_idrsc[,1], PC2=tsne_idrsc[,2], pseudotime=pseudo.slingshot,
+                   scaled_pseudotime = range01(pseudo.slingshot, na.rm=T))
+library(ggplot2)
+med <- quantile(dat1$scaled_pseudotime, 0.3, na.rm=T)
+p1 <- ggplot(subset(dat1, !is.na(pseudotime)), aes(x=PC1, y=PC2, color=scaled_pseudotime)) + 
+  geom_point( alpha=1) +
+  scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x=element_text(size=14,color="black"),
+        axis.text.y=element_text(size=14, color="black"),
+        axis.title.x = element_text(size=18, color='black'),
+        axis.title.y = element_text(size=18, color='black'),
+        title= element_text(size=20, color='blue'),
+        legend.text=element_text(size=14),
+        legend.position = 'none',
+        panel.background= element_rect(fill = 'white', colour = 'black')) +
+  cowplot::theme_cowplot()+ xlab('tSNE 1') + ylab("tSNE 2")# + theme(legend.position = 'none')
+p1
+
+##### 3g #####
+library(SingleCellExperiment)
+load("Liver8_sce_changedGenes_along_pseudotime.rds")
+load('Liver8_pseudo_TSCANtest.rds')
+load("pseudotime_allspots_mouseLiver8V2.rds")
+pt <- pseudo.slingshot2
+pseudo[order(pseudo$p.value),]
+#sum(abs(pseudo$logFC) > 0.01)
+sum(pseudo$FDR<0.05)
+sorted <- pseudo[order(pseudo$p.value),]
+up.left <- sorted # [sorted$logFC < 0,]
+head(up.left, 10)
+best <- head(row.names(up.left), 20)
+
+rowData(sce.liver)$SYMBOL <- row.names(sce.liver)
+sce.liver$Pseudotime <- pt
+
+domain_colors <- c("#98df8a", "#2ca02c", "#1f77b4", "#ffbb78", "#aec7e8", "#ff9896", "#d62728")
+domain_names_allspots <- cl_idrsc_cellRegion
+
+## orered top 30 genes
+features_reorder <- c("Glul", "Oat","Cyp2e1","Slc1a2","Gulo","Lect2" ,  "Cyp2e1",
+                      "Cyp2c37","Cyp2c69", "Cyp3a11","Rnase4", "Aldh1a1","Cyp2c29",
+                      ## lower
+                      "Cyp2f2", "Hal" ,"Sds", "Hsd17b13", "Ctsc", "A1bg","Rida")
+
+p1 <- scater::plotHeatmap(sce.liver, order_columns_by="Pseudotime", 
+                          colour_columns_by= "domain", features= features_heat,
+                          center=TRUE, swap_rownames="SYMBOL", cluster_rows=F)
+
+##### 4b #####
+object_delete <- setdiff(ls(), 'dir_current')
+rm(list=object_delete)
+
+source(paste0(dir_current, "//utility_funcs.R"))
+setwd(paste0(dir_current, "dataFiles\\Bulb16\\") )
+#### Start Assignment plot
+load("clusterAll_tmpList_Method8_Bulb16_rep2_merge70.rds")
+load('posList16_before_merge70_Bulb16rep2.rds')
+posList <- posList16_before_merge70
+sum(sapply(posList, nrow))
+## Add PASTE
+load("clusterAll_paste_tmpList_Bulb16_rep2_merge70.rds")
+for(r in 1:16){
+  clusterAll_tmpList[[r]][["PASTE"]] <- clusterAll_paste_tmpList[[r]]
+}
+
+idx_outList <- list()
+for(r in 3:16){
+  idx_outList[[r]] <-  c(order(posList[[r]][,2], decreasing = T)[1:10],
+                         order(posList[[r]][,1])[1:10])
+  
+}
+##### domain color selection
+library(ggthemes)
+palettes <- ggthemes_data[["tableau"]][["color-palettes"]][["regular"]]
+names(palettes)
+pal1 <- tableau_color_pal("Classic 20")
+max_n <- attr(pal1, "max_n")
+pal2 <- tableau_color_pal("Classic Blue-Red 12")
+max_n2 <- attr(pal2, "max_n")
+
+
+cols_cluster <- c( "#FD7446", 'blue3',"#709AE1", "green1",
+                   "#DE9ED6" ,"#BCBD22", "#CE6DBD" ,"#DADAEB" ,
+                   "#91D1C2","#FFD70099", "#6B6ECF",  "#C7E9C0" ,
+                   "#7B4173", "green4","#FF9896",  pal1(max_n))
+
+## change the order of clusters
+rawID <-  c(1, 5, 3, 12, 9,11, 7,  8, 4, 10, 2,  6)
+names(rawID) <- 1: 12
+# simutool::colorbar_adj_transparent(cols_cluster[1:12], alpha=1)
+#####plot iDR-SC cluster
+
+pList <- list()
+pt_size <- 0.2
+point_alpha <- 0.8
+for(r in 1:16){
+  # r <- 8
+  message('r = ', r)
+  if(r >=3){
+    cluster_tmp <- clusterAll_tmpList[[r]][[1]][-idx_outList[[r]]]
+  }else{
+    cluster_tmp <- clusterAll_tmpList[[r]][[1]]
+  }
+  
+  idx <- !is.na(cluster_tmp)
+  cluster_tmp <- as.numeric(replace_ID(cluster_tmp[idx], rawID))
+  unique_sort <- sort(unique(cluster_tmp))
+  clusterlabel <- factor(cluster_tmp, levels=unique_sort)
+  pos_tmp <- if(r>=3){
+    posList[[r]][-idx_outList[[r]],]
+  }else{
+    posList[[r]] 
+  } 
+  if(r != 9){
+    ptmp <- plot_scatter(pos_tmp[idx, ], 
+                         meta_data = data.frame(cluster=clusterlabel),
+                         label_name = 'cluster', xy_names = c("", ""), no_guides = T,
+                         point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
+      theme_bulb16()
+  }else{
+    ptmp <- plot_scatter(pos_tmp[idx, ][-32115 ,], meta_data = data.frame(cluster=clusterlabel),
+                         label_name = 'cluster', xy_names = c("", ""), no_guides = T,
+                         point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
+      theme_bulb16()
+  }
+  
+  
+  pList[[r]] <- ptmp
+}
+
+
+p12 <- cowplot::plot_grid(plotlist=pList, nrow=3, ncol=6)
+# ggsave(file="Bulb16_rep2_merge70_mPotts5_chooseK12_clusterAssignment.png", plot = p12,
+#        width = 11, height =11, units = "in", dpi = 500)
+
+ggsave(file="Bulb16_rep2_merge70_mPotts5_chooseK12_clusterAssignmentV2.png", plot = p12,
+       width = 12, height =6, units = "in", dpi = 500)
+
+## Label legend
+p1 <- pList[[8]]
+Seurat:: LabelClusters(p1, id='cluster', repel = T, 
+                       size = 5, color = 'white', 
+                       box = T, position = "nearest", max.overlaps =8)
+
+plot_scatter(pos_tmp[idx, ], meta_data = data.frame(cluster=clusterlabel),
+             label_name = 'cluster', xy_names = c("", ""), no_guides = F,
+             point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
+  mytheme_graybox()
+
+##### 4c #####
+### tSNE plots vs sample and clusters
+load("tsne2_allMethods_Bulb16_rep2_merge70.rds")
+
+load("tsne2_paste_bulb16_merge.rds")
+tsne2List[["PASTE"]] <- hZ_tsne2_paste
+
+meta_data$domain <- factor(replace_ID(meta_data$domain, rawID), levels=1:12)
+cols_sample=c('#1CE6FF','#FF34FF','#008941','#A30059',
+              '#FF2F80','#0000A6','#63FFAC','#004D43','#8FB0FF','#4FC601',
+              '#3B5DFF','#4A3B53','#61615A','#BA0900','#6B7900','#00C2A0',
+              '#FFAA92','#FF90C9','#B903AA')
+# colorbar_adj_transparent(cols_cluster[1:12],1)
+
+cols_cluster2 <- cols_cluster
+cols_cluster2[4] <- "green2"
+library(ggplot2)
+str(tsne2List)
+
+
+pt_size_sample <- 0.2; pt_alpha_sample <- 0.5
+pt_size_cluster <- 0.2; pt_alpha_cluster <- 0.7
+base_axis_size <- 20
+
+pList_sample <- list(); pList_cluster <- list()
+for(j in 1:length(tsne2List)){
+  # j <- 1
+  message('j = ', j)
+  if(j %in% c(1,4:10)){
+    pList_sample[[j]] <- plot_scatter(tsne2List[[j]], meta_data, label_name = 'sample', border_col='gray13', 
+                                      base_size=base_axis_size,palette_use=cols_sample, point_size = pt_size_sample, 
+                                      point_alpha = pt_alpha_sample,no_guides=T) + labs(x=NULL, y=NULL)
+    pList_cluster[[j]] <- plot_scatter(tsne2List[[j]], meta_data, label_name = 'domain', base_size=20,
+                                       palette_use=cols_cluster2, point_size = pt_size_cluster,border_col='gray13', 
+                                       point_alpha =pt_alpha_cluster,no_guides=T) + labs(x=NULL, y=NULL)
+    
+    if(j %in% c(2,3)){
+      pList_sample[[j]] <- pList_sample[[j]] + xlim(c(-40, 30)) 
+      pList_cluster[[j]] <- pList_cluster[[j]] + xlim(c(-40, 30)) 
+    }
+  }
+}
+names(pList_sample) <-names(pList_cluster) <-  names(tsne2List)
+
+library(cowplot)
+subnames <- c("iDR-SC" ,"Seurat V3", "Harmony","fastMNN", "Uncorrected")
+p12 <- plot_grid(plotlist =pList_sample[subnames], nrow=1, ncol=5)
+ggsave(file="tsne_sample_heatmap_Bulb16_rep2_merge70.png", plot = p12,
+       width = 25, height =4.8, units = "in", dpi = 500)
+
+p1 <- pList_cluster[[1]]
+pList_cluster[[1]] <- Seurat::  LabelClusters(p1, id='domain', repel = T, 
+                                              size = 9, color = 'white', 
+                                              box = T, position = "nearest")
+
+p12 <- plot_grid(plotlist =pList_cluster[subnames], nrow=1, ncol=5)
+ggsave(file="tsne_cluster_heatmap_Bulb16_rep2_merge70.png", plot = p12,
+       width = 25, height =4.8, units = "in", dpi = 500)
+
+## get legend Label
+j <- 1
+plot_scatter(tsne2List[[j]], meta_data, label_name = 'sample', border_col='gray13', 
+             base_size=base_axis_size,palette_use=cols_sample, point_size = pt_size_sample, 
+             point_alpha = pt_alpha_sample,no_guides=F)
+
+plot_scatter(tsne2List[[j]], meta_data, label_name = 'domain', base_size=20,
+             palette_use=cols_cluster2, point_size = pt_size_cluster,border_col='gray13', 
+             point_alpha =pt_alpha_cluster,no_guides=F)
+
+# pList_sample[[5]]
+# subnames2 <- c("Scanorama",  "scGen", "scVI", "MEFISTO", "PASTE")
+# p12 <- plot_grid(plotlist =pList_sample[subnames2], nrow=1, ncol=5)
+# ggsave(file="tsne_Py4_sample_heatmap_Bulb16_rep2_merge70.png", plot = p12,
+#        width = 25, height =5, units = "in", dpi = 200)
+# p12 <- plot_grid(plotlist =pList_cluster[subnames2], nrow=1, ncol=5)
+# ggsave(file="tsne_Py4_cluster_heatmap_Bulb16_rep2_merge70.png", plot = p12,
+#        width = 25, height =5, units = "in", dpi = 200)
+
+##### 4d #####
+library(ggthemes)
+cols_cluster <- c(get_trans_colors("gray16", 5)[1:3], "#1f77b4", get_trans_colors("#bcbd22", 4)[2:3],
+                  "darkolivegreen4",
+                  get_trans_colors("#709AE1",7),"#ff7f0e", get_trans_colors("#ffbb78", 3), "darkorchid2",
+                  get_trans_colors("#31A354",2), 
+                  get_trans_colors("#DE9ED6", 3),"#BCBD22", c('deepskyblue2',
+                                                              'deepskyblue3'),#get_trans_colors("deepskyblue2",2),
+                  "#DADAEB",
+                  get_trans_colors("#91D1C2",5),  "#6B6ECF", "#7B4173", 
+                  get_trans_colors("#9EDAE5", 3), "#d62728", "#ff9896", "red", 'red1' )
+
+
+#########bar plot for
+
+load("Bulb16_rep2_Merge70_clusterK12_renumber_idrsc.rds")
+table(cluster_idrsc_renumber[[1]])
+load("posList_Bulb16_rep2_merge70.rds")
+str(posList[[1]])
+
+
+slice_set_sequence = 1
+need_scale = T
+figure_list = list()
+for (slice_set in slice_set_sequence){
+  # slice_set <- 1
+  norm_weights = read.csv(paste('deconvoltion_results_new/output_weights_bulb_st',slice_set,'.csv',sep=""),row.names=1)
+  
+  colnames(norm_weights)[15] <- "Macrophage" #'Mf'
+  
+  
+  colnames(norm_weights)[colnames(norm_weights) =='n01.OSNs'] = 'OSNs'
+  colnames(norm_weights)[colnames(norm_weights) =='n02.PGC.1'] = 'PGC-1'
+  colnames(norm_weights)[colnames(norm_weights) =='n03.GC.1'] = 'GC-1'
+  colnames(norm_weights)[colnames(norm_weights) =='n04.Immature'] = 'Immature'
+  colnames(norm_weights)[colnames(norm_weights) =='n05.PGC.2'] = 'PGC-2'
+  colnames(norm_weights)[colnames(norm_weights) =='n06.Transition'] = 'Transition'
+  colnames(norm_weights)[colnames(norm_weights) =='n07.GC.2'] = 'GC-2'
+  colnames(norm_weights)[colnames(norm_weights) =='n08.PGC.3'] = 'PGC-3'
+  colnames(norm_weights)[colnames(norm_weights) =='n09.GC.3'] = 'GC-3'
+  colnames(norm_weights)[colnames(norm_weights) =='n10.GC.4'] = 'GC-4'
+  colnames(norm_weights)[colnames(norm_weights) =='n11.GC.5'] = 'GC-5'
+  colnames(norm_weights)[colnames(norm_weights) =='n12.GC.6'] = 'GC-6'
+  colnames(norm_weights)[colnames(norm_weights) =='n13.AstrocyteLike'] = 'AstrocyteLike'
+  colnames(norm_weights)[colnames(norm_weights) =='n14.GC.7'] = 'GC-7'
+  colnames(norm_weights)[colnames(norm_weights) =='n15.M.TC.1'] = 'M/TC-1'
+  colnames(norm_weights)[colnames(norm_weights) =='n16.M.TC.2'] = 'M/TC-2'
+  colnames(norm_weights)[colnames(norm_weights) =='n17.M.TC.3'] = 'M/TC-3'
+  colnames(norm_weights)[colnames(norm_weights) =='n18.EPL.IN'] = 'EPL-IN'
+  
+  
+  cluster_id = cbind(posList[[slice_set]],cluster_idrsc_renumber[[slice_set]])
+  cluster_weight = merge(norm_weights,cluster_id[,3],by = 0)
+  rownames(cluster_weight) = cluster_weight$Row.names
+  cluster_weight = cluster_weight[,-1]
+  
+  percentage = as.data.frame(cluster_weight %>% group_by(y) %>% summarise(across(everything(), sum)))
+  #colnames(percentage) = c( "Cluster",'Immune cell',"CAF","TAM","HPC-like cell","Malignant cell")
+  colnames(percentage)[1] = c( "Cluster")
+  percentage_long <- melt(as.data.frame(percentage),id.vars ='Cluster')
+  
+  if (need_scale == T){
+    percentage_scale = matrix(0,nrow(percentage),ncol(percentage))
+    for (tt in 1:nrow(percentage)){
+      percentage_scale[tt,] = as.numeric(cbind(percentage$Cluster[tt],percentage[tt,2:ncol(percentage)]/sum(rowSums(percentage[,2:ncol(percentage)]))))
+    }
+    colnames(percentage_scale) = colnames(percentage)
+    #sum(percentage_scale[,2:ncol(percentage)])
+    percentage_long <- melt(as.data.frame(percentage_scale),id.vars ='Cluster')
+  }
+  
+  if (need_scale == T){
+    geom_bar_position = 'stack'
+  }else{
+    geom_bar_position = 'fill'
+  }
+  #level_names <- c("Malignant cell","Immune cell","CAF","TAM","HPC-like cell")
+  level_names <- sort(levels(percentage_long$variable))
+  percentage_long$variable <- factor(percentage_long$variable, levels=level_names)
+  
+  percentage_long$Cluster <- factor(percentage_long$Cluster, levels = 1:12)
+  
+  if (slice_set == 1){
+    figure_list[[slice_set]] <- bar_plot(percentage_long,geom_bar_position=geom_bar_position, legend_position='right',
+                                         color_pal =cols_cluster )
+  }else{
+    figure_list[[slice_set]] <- bar_plot(percentage_long,geom_bar_position=geom_bar_position, legend_position='none',
+                                         color_pal = cols_cluster)
+  }
+}
+
+if(need_scale){
+  ggsave(file=paste0('result/Bulb_percentage_scaled_bulb',slice_set_sequence,'.png'), plot = figure_list[[slice_set]], 
+         width = 10, height = 8, units = "in", bg = 'white', dpi = 500,limitsize = F)
+}else{
+  ggsave(file=paste0('result/Bulb_percentage_unscaled_bulb',slice_set_sequence,'.png'), plot = figure_list[[slice_set]], 
+         width = 10, height = 8, units = "in", bg = 'white', dpi = 500,limitsize = F)
+}
+
+
+
+
+
+##### 4e #####
+cols_alpha2 <- c(cols_alpha, '#57A6D9')
+main_order_names2 <- c(main_order_names)
+main_order_names2[1] <- iDR_SC_newname
+
+## Plot Macfadden's adjusted R2
+load('MacR2Vec_Bulb16_merge70.rds')
+p1 <- barPlot_real(MacR2Vec[main_order_names2], cols = cols_alpha2, ylabel = "McFadden_R2")+theme_classic() + 
+  theme( axis.text.x = element_blank() ) + theme(text = element_text(size=20))
+ggsave(file="./barPlot_MacFaddenR2_bulb16_merge.png", plot = p1,
+       width =7, height =4, units = "in", dpi = 800)
+
+
+
+load("metric_clusterMat_deconCelltype_mergesubtype_bulb16_mergeV2.rds")
+
+p1 <- volinPlot_real(ariMat[,main_order_names2], cols = cols_alpha2)
+p2 <- volinPlot_real(nmiMat[,main_order_names2], ylabel = "NMI",  cols = cols_alpha2)
+ggsave(file="./volinPlot_ariMat_bulb16_mergeV2.png", plot = p1,
+       width =7, height =4, units = "in", dpi = 800)
+ggsave(file="/volinPlot_nmiMat_bulb16_mergeV2.png", plot = p2,
+       width =7, height =4, units = "in", dpi = 800)
+
+##### 4f #####
+
+#### Plot tractory on tSNE
+load("pseudotime_allspots_bulb16_merge.rds")
+load("tsne2_allMethods_Bulb16_rep2_merge70.rds")
+tsne_idrsc <- tsne2List[[1]]
+
+dat1 <- data.frame(PC1=tsne_idrsc[,1], PC2=tsne_idrsc[,2], pseudotime=pseudotime_allspots,
+                   scaled_pseudotime = range01(pseudotime_allspots, na.rm=T))
+library(ggplot2)
+med <- quantile(dat1$scaled_pseudotime, 0.3, na.rm=T)
+p1 <- ggplot(subset(dat1, !is.na(pseudotime)), aes(x=PC1, y=PC2, color=scaled_pseudotime)) + 
+  geom_point( alpha=1) +
+  scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x=element_text(size=14,color="black"),
+        axis.text.y=element_text(size=14, color="black"),
+        axis.title.x = element_text(size=18, color='black'),
+        axis.title.y = element_text(size=18, color='black'),
+        title= element_text(size=20, color='blue'),
+        legend.text=element_text(size=14),
+        legend.position = 'none',
+        panel.background= element_rect(fill = 'white', colour = 'black')) +
+  cowplot::theme_cowplot()+ xlab('tSNE 1') + ylab("tSNE 2") + theme(legend.position = 'none')
+p1
+
+ggsave(file=paste0("Bulb16_merge70_TSNEpsedotimeV2.png"), plot = p1,
+       width = 6.5, height =5, units = "in", dpi = 400)
+
+
+load("pseudotime_tmpList_bulb16_merge70.rds")
+load('posList16_before_merge70_Bulb16rep2.rds')
+posList <- posList16_before_merge70
+sum(sapply(posList, nrow))
+
+
+
+idx_outList <- list()
+for(r in 3:16){
+  idx_outList[[r]] <-  c(order(posList[[r]][,2], decreasing = T)[1:10],
+                         order(posList[[r]][,1])[1:10])
+  
+}
+for(r in 1:2){
+  idx_outList[[r]] <- 25
+}
+pt_size = 0.1
+pList_pseudo <- list()
+for(r in 1:16){ ## each sample
+  # r <- 1
+  
+  
+  message("r = ", r)
+  pseudotime_tmp <- pseudotime_tmpList[[r]]  [-idx_outList[[r]]]
+  indx <- 1:length(pseudotime_tmp)#which(!is.na(pseudotime_tmp))
+  pseudotime_tmp <- pseudotime_tmp[indx]
+  pos_tmp <- posList[[r]][-idx_outList[[r]],][indx,]
+  
+  dat1 <- data.frame(row=pos_tmp[,1], col=pos_tmp[,2], pseudotime=pseudotime_tmp,
+                     scaled_pseudotime = range01(pseudotime_tmp, na.rm=T))
+  med <- quantile(dat1$scaled_pseudotime, 0.6, na.rm=T)
+  ptmp <- ggplot(dat1, aes(x=row, y=col, color=scaled_pseudotime)) + geom_point(size=pt_size, alpha=1) +
+    scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
+    mytheme_graybox()  + theme(legend.position = 'none') 
+  pList_pseudo[[r]]<- ptmp
+  
+  
+}
+library(cowplot)
+pList_pseudo[[1]]
+p12 <- plot_grid(plotlist =pList_pseudo[1:8], nrow=2, ncol=4, byrow=T)
+ggsave(file=paste0("Bulb16_1to8_merge70_psedotime_spatialheatmapV2.png"), plot = p12,
+       width = 12, height =6, units = "in", dpi = 400)
+
+
+# p12 <- plot_grid(plotlist =pList_pseudo[9:16], nrow=2, ncol=4, byrow=T)
+# ggsave(file=paste0("Bulb16_9to16_merge70_psedotime_spatialheatmapV2.png"), plot = p12,
+#        width = 12, height =6, units = "in", dpi = 400)
+# get legend
+ggplot(dat1, aes(x=row, y=col, color=scaled_pseudotime)) + geom_point(size=pt_size) +
+  scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+ theme_bulb16()
+
+##### 5b #####
+object_delete <- setdiff(ls(), 'dir_current')
+rm(list=object_delete)
 
 setwd(paste0(dir_current, "dataFiles\\HCC4\\") )
+source(paste0(dir_current, "//utility_funcs.R"))
 library(cowplot)
 load("HCC4_posList.rds")
 load("HCC4_RGB_hZ_umapList_allsample.rds")
@@ -454,7 +1111,7 @@ ggsave(file="HCC4_assign_heatmap_iDRSC.png", plot = p12,
 
 
 
-##### 3c #####
+##### 5c #####
 
 ##tSNE plot VS sample and clusters
 load("hZtsneList_HCC4.rds")
@@ -547,7 +1204,7 @@ plot_scatter(hZtsneList[[1]], meta_data, label_name = 'cluster_reorder', base_si
              point_alpha =pt_alpha_cluster,no_guides=F)
 
 
-##### 3d & 3e #####
+##### 5d & 5e #####
 library(Seurat)
 library(tidyr)
 library(dplyr)
@@ -825,923 +1482,4 @@ ggsave(file='result/HPC_select_type7.png', plot = figure_celltype_weight,
 
 
 
-##### 4b #####
 
-setwd(paste0(dir_current, "dataFiles\\Bulb16\\") )
-#### Start Assignment plot
-load("clusterAll_tmpList_Method8_Bulb16_rep2_merge70.rds")
-load('posList16_before_merge70_Bulb16rep2.rds')
-posList <- posList16_before_merge70
-sum(sapply(posList, nrow))
-## Add PASTE
-load("clusterAll_paste_tmpList_Bulb16_rep2_merge70.rds")
-for(r in 1:16){
-  clusterAll_tmpList[[r]][["PASTE"]] <- clusterAll_paste_tmpList[[r]]
-}
-
-idx_outList <- list()
-for(r in 3:16){
-  idx_outList[[r]] <-  c(order(posList[[r]][,2], decreasing = T)[1:10],
-                         order(posList[[r]][,1])[1:10])
-  
-}
-##### domain color selection
-library(ggthemes)
-palettes <- ggthemes_data[["tableau"]][["color-palettes"]][["regular"]]
-names(palettes)
-pal1 <- tableau_color_pal("Classic 20")
-max_n <- attr(pal1, "max_n")
-pal2 <- tableau_color_pal("Classic Blue-Red 12")
-max_n2 <- attr(pal2, "max_n")
-
-
-cols_cluster <- c( "#FD7446", 'blue3',"#709AE1", "green1",
-                   "#DE9ED6" ,"#BCBD22", "#CE6DBD" ,"#DADAEB" ,
-                   "#91D1C2","#FFD70099", "#6B6ECF",  "#C7E9C0" ,
-                   "#7B4173", "green4","#FF9896",  pal1(max_n))
-
-## change the order of clusters
-rawID <-  c(1, 5, 3, 12, 9,11, 7,  8, 4, 10, 2,  6)
-names(rawID) <- 1: 12
-# simutool::colorbar_adj_transparent(cols_cluster[1:12], alpha=1)
-#####plot iDR-SC cluster
-
-pList <- list()
-pt_size <- 0.2
-point_alpha <- 0.8
-for(r in 1:16){
-  # r <- 8
-  message('r = ', r)
-  if(r >=3){
-    cluster_tmp <- clusterAll_tmpList[[r]][[1]][-idx_outList[[r]]]
-  }else{
-    cluster_tmp <- clusterAll_tmpList[[r]][[1]]
-  }
-  
-  idx <- !is.na(cluster_tmp)
-  cluster_tmp <- as.numeric(replace_ID(cluster_tmp[idx], rawID))
-  unique_sort <- sort(unique(cluster_tmp))
-  clusterlabel <- factor(cluster_tmp, levels=unique_sort)
-  pos_tmp <- if(r>=3){
-    posList[[r]][-idx_outList[[r]],]
-  }else{
-    posList[[r]] 
-  } 
-  if(r != 9){
-    ptmp <- plot_scatter(pos_tmp[idx, ], 
-                         meta_data = data.frame(cluster=clusterlabel),
-                         label_name = 'cluster', xy_names = c("", ""), no_guides = T,
-                         point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
-      theme_bulb16()
-  }else{
-    ptmp <- plot_scatter(pos_tmp[idx, ][-32115 ,], meta_data = data.frame(cluster=clusterlabel),
-                         label_name = 'cluster', xy_names = c("", ""), no_guides = T,
-                         point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
-      theme_bulb16()
-  }
-  
-  
-  pList[[r]] <- ptmp
-}
-
-
-p12 <- cowplot::plot_grid(plotlist=pList, nrow=3, ncol=6)
-# ggsave(file="Bulb16_rep2_merge70_mPotts5_chooseK12_clusterAssignment.png", plot = p12,
-#        width = 11, height =11, units = "in", dpi = 500)
-
-ggsave(file="Bulb16_rep2_merge70_mPotts5_chooseK12_clusterAssignmentV2.png", plot = p12,
-       width = 12, height =6, units = "in", dpi = 500)
-
-## Label legend
-p1 <- pList[[8]]
-Seurat:: LabelClusters(p1, id='cluster', repel = T, 
-                       size = 5, color = 'white', 
-                       box = T, position = "nearest", max.overlaps =8)
-
-plot_scatter(pos_tmp[idx, ], meta_data = data.frame(cluster=clusterlabel),
-             label_name = 'cluster', xy_names = c("", ""), no_guides = F,
-             point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
-  mytheme_graybox()
-
-##### 4c #####
-### tSNE plots vs sample and clusters
-load("tsne2_allMethods_Bulb16_rep2_merge70.rds")
-
-load("tsne2_paste_bulb16_merge.rds")
-tsne2List[["PASTE"]] <- hZ_tsne2_paste
-
-meta_data$domain <- factor(replace_ID(meta_data$domain, rawID), levels=1:12)
-cols_sample=c('#1CE6FF','#FF34FF','#008941','#A30059',
-              '#FF2F80','#0000A6','#63FFAC','#004D43','#8FB0FF','#4FC601',
-              '#3B5DFF','#4A3B53','#61615A','#BA0900','#6B7900','#00C2A0',
-              '#FFAA92','#FF90C9','#B903AA')
-# colorbar_adj_transparent(cols_cluster[1:12],1)
-
-cols_cluster2 <- cols_cluster
-cols_cluster2[4] <- "green2"
-library(ggplot2)
-str(tsne2List)
-
-
-pt_size_sample <- 0.2; pt_alpha_sample <- 0.5
-pt_size_cluster <- 0.2; pt_alpha_cluster <- 0.7
-base_axis_size <- 20
-
-pList_sample <- list(); pList_cluster <- list()
-for(j in 1:length(tsne2List)){
-  # j <- 1
-  message('j = ', j)
-  if(j %in% c(1,4:10)){
-    pList_sample[[j]] <- plot_scatter(tsne2List[[j]], meta_data, label_name = 'sample', border_col='gray13', 
-                                      base_size=base_axis_size,palette_use=cols_sample, point_size = pt_size_sample, 
-                                      point_alpha = pt_alpha_sample,no_guides=T) + labs(x=NULL, y=NULL)
-    pList_cluster[[j]] <- plot_scatter(tsne2List[[j]], meta_data, label_name = 'domain', base_size=20,
-                                       palette_use=cols_cluster2, point_size = pt_size_cluster,border_col='gray13', 
-                                       point_alpha =pt_alpha_cluster,no_guides=T) + labs(x=NULL, y=NULL)
-    
-    if(j %in% c(2,3)){
-      pList_sample[[j]] <- pList_sample[[j]] + xlim(c(-40, 30)) 
-      pList_cluster[[j]] <- pList_cluster[[j]] + xlim(c(-40, 30)) 
-    }
-  }
-}
-names(pList_sample) <-names(pList_cluster) <-  names(tsne2List)
-
-library(cowplot)
-subnames <- c("iDR-SC" ,"Seurat V3", "Harmony","fastMNN", "Uncorrected")
-p12 <- plot_grid(plotlist =pList_sample[subnames], nrow=1, ncol=5)
-ggsave(file="tsne_sample_heatmap_Bulb16_rep2_merge70.png", plot = p12,
-       width = 25, height =4.8, units = "in", dpi = 500)
-
-p1 <- pList_cluster[[1]]
-pList_cluster[[1]] <- Seurat::  LabelClusters(p1, id='domain', repel = T, 
-                                              size = 9, color = 'white', 
-                                              box = T, position = "nearest")
-
-p12 <- plot_grid(plotlist =pList_cluster[subnames], nrow=1, ncol=5)
-ggsave(file="tsne_cluster_heatmap_Bulb16_rep2_merge70.png", plot = p12,
-       width = 25, height =4.8, units = "in", dpi = 500)
-
-## get legend Label
-j <- 1
-plot_scatter(tsne2List[[j]], meta_data, label_name = 'sample', border_col='gray13', 
-             base_size=base_axis_size,palette_use=cols_sample, point_size = pt_size_sample, 
-             point_alpha = pt_alpha_sample,no_guides=F)
-
-plot_scatter(tsne2List[[j]], meta_data, label_name = 'domain', base_size=20,
-             palette_use=cols_cluster2, point_size = pt_size_cluster,border_col='gray13', 
-             point_alpha =pt_alpha_cluster,no_guides=F)
-
-# pList_sample[[5]]
-# subnames2 <- c("Scanorama",  "scGen", "scVI", "MEFISTO", "PASTE")
-# p12 <- plot_grid(plotlist =pList_sample[subnames2], nrow=1, ncol=5)
-# ggsave(file="tsne_Py4_sample_heatmap_Bulb16_rep2_merge70.png", plot = p12,
-#        width = 25, height =5, units = "in", dpi = 200)
-# p12 <- plot_grid(plotlist =pList_cluster[subnames2], nrow=1, ncol=5)
-# ggsave(file="tsne_Py4_cluster_heatmap_Bulb16_rep2_merge70.png", plot = p12,
-#        width = 25, height =5, units = "in", dpi = 200)
-
-##### 4d #####
-library(ggthemes)
-cols_cluster <- c(get_trans_colors("gray16", 5)[1:3], "#1f77b4", get_trans_colors("#bcbd22", 4)[2:3],
-                  "darkolivegreen4",
-                  get_trans_colors("#709AE1",7),"#ff7f0e", get_trans_colors("#ffbb78", 3), "darkorchid2",
-                  get_trans_colors("#31A354",2), 
-                  get_trans_colors("#DE9ED6", 3),"#BCBD22", c('deepskyblue2',
-                                                              'deepskyblue3'),#get_trans_colors("deepskyblue2",2),
-                  "#DADAEB",
-                  get_trans_colors("#91D1C2",5),  "#6B6ECF", "#7B4173", 
-                  get_trans_colors("#9EDAE5", 3), "#d62728", "#ff9896", "red", 'red1' )
-
-
-#########bar plot for
-
-load("Bulb16_rep2_Merge70_clusterK12_renumber_idrsc.rds")
-table(cluster_idrsc_renumber[[1]])
-load("posList_Bulb16_rep2_merge70.rds")
-str(posList[[1]])
-
-
-slice_set_sequence = 1
-need_scale = T
-figure_list = list()
-for (slice_set in slice_set_sequence){
-  # slice_set <- 1
-  norm_weights = read.csv(paste('deconvoltion_results_new/output_weights_bulb_st',slice_set,'.csv',sep=""),row.names=1)
-  
-  colnames(norm_weights)[15] <- "Macrophage" #'Mf'
-  
-  
-  colnames(norm_weights)[colnames(norm_weights) =='n01.OSNs'] = 'OSNs'
-  colnames(norm_weights)[colnames(norm_weights) =='n02.PGC.1'] = 'PGC-1'
-  colnames(norm_weights)[colnames(norm_weights) =='n03.GC.1'] = 'GC-1'
-  colnames(norm_weights)[colnames(norm_weights) =='n04.Immature'] = 'Immature'
-  colnames(norm_weights)[colnames(norm_weights) =='n05.PGC.2'] = 'PGC-2'
-  colnames(norm_weights)[colnames(norm_weights) =='n06.Transition'] = 'Transition'
-  colnames(norm_weights)[colnames(norm_weights) =='n07.GC.2'] = 'GC-2'
-  colnames(norm_weights)[colnames(norm_weights) =='n08.PGC.3'] = 'PGC-3'
-  colnames(norm_weights)[colnames(norm_weights) =='n09.GC.3'] = 'GC-3'
-  colnames(norm_weights)[colnames(norm_weights) =='n10.GC.4'] = 'GC-4'
-  colnames(norm_weights)[colnames(norm_weights) =='n11.GC.5'] = 'GC-5'
-  colnames(norm_weights)[colnames(norm_weights) =='n12.GC.6'] = 'GC-6'
-  colnames(norm_weights)[colnames(norm_weights) =='n13.AstrocyteLike'] = 'AstrocyteLike'
-  colnames(norm_weights)[colnames(norm_weights) =='n14.GC.7'] = 'GC-7'
-  colnames(norm_weights)[colnames(norm_weights) =='n15.M.TC.1'] = 'M/TC-1'
-  colnames(norm_weights)[colnames(norm_weights) =='n16.M.TC.2'] = 'M/TC-2'
-  colnames(norm_weights)[colnames(norm_weights) =='n17.M.TC.3'] = 'M/TC-3'
-  colnames(norm_weights)[colnames(norm_weights) =='n18.EPL.IN'] = 'EPL-IN'
-  
-  
-  cluster_id = cbind(posList[[slice_set]],cluster_idrsc_renumber[[slice_set]])
-  cluster_weight = merge(norm_weights,cluster_id[,3],by = 0)
-  rownames(cluster_weight) = cluster_weight$Row.names
-  cluster_weight = cluster_weight[,-1]
-  
-  percentage = as.data.frame(cluster_weight %>% group_by(y) %>% summarise(across(everything(), sum)))
-  #colnames(percentage) = c( "Cluster",'Immune cell',"CAF","TAM","HPC-like cell","Malignant cell")
-  colnames(percentage)[1] = c( "Cluster")
-  percentage_long <- melt(as.data.frame(percentage),id.vars ='Cluster')
-  
-  if (need_scale == T){
-    percentage_scale = matrix(0,nrow(percentage),ncol(percentage))
-    for (tt in 1:nrow(percentage)){
-      percentage_scale[tt,] = as.numeric(cbind(percentage$Cluster[tt],percentage[tt,2:ncol(percentage)]/sum(rowSums(percentage[,2:ncol(percentage)]))))
-    }
-    colnames(percentage_scale) = colnames(percentage)
-    #sum(percentage_scale[,2:ncol(percentage)])
-    percentage_long <- melt(as.data.frame(percentage_scale),id.vars ='Cluster')
-  }
-  
-  if (need_scale == T){
-    geom_bar_position = 'stack'
-  }else{
-    geom_bar_position = 'fill'
-  }
-  #level_names <- c("Malignant cell","Immune cell","CAF","TAM","HPC-like cell")
-  level_names <- sort(levels(percentage_long$variable))
-  percentage_long$variable <- factor(percentage_long$variable, levels=level_names)
-  
-  percentage_long$Cluster <- factor(percentage_long$Cluster, levels = 1:12)
-  
-  if (slice_set == 1){
-    figure_list[[slice_set]] <- bar_plot(percentage_long,geom_bar_position=geom_bar_position, legend_position='right',
-                                         color_pal =cols_cluster )
-  }else{
-    figure_list[[slice_set]] <- bar_plot(percentage_long,geom_bar_position=geom_bar_position, legend_position='none',
-                                         color_pal = cols_cluster)
-  }
-}
-
-if(need_scale){
-  ggsave(file=paste0('result/Bulb_percentage_scaled_bulb',slice_set_sequence,'.png'), plot = figure_list[[slice_set]], 
-         width = 10, height = 8, units = "in", bg = 'white', dpi = 500,limitsize = F)
-}else{
-  ggsave(file=paste0('result/Bulb_percentage_unscaled_bulb',slice_set_sequence,'.png'), plot = figure_list[[slice_set]], 
-         width = 10, height = 8, units = "in", bg = 'white', dpi = 500,limitsize = F)
-}
-
-##### 4e #####
-
-#### Plot tractory on tSNE
-load("pseudotime_allspots_bulb16_merge.rds")
-load("tsne2_allMethods_Bulb16_rep2_merge70.rds")
-tsne_idrsc <- tsne2List[[1]]
-
-dat1 <- data.frame(PC1=tsne_idrsc[,1], PC2=tsne_idrsc[,2], pseudotime=pseudotime_allspots,
-                   scaled_pseudotime = range01(pseudotime_allspots, na.rm=T))
-library(ggplot2)
-med <- quantile(dat1$scaled_pseudotime, 0.3, na.rm=T)
-p1 <- ggplot(subset(dat1, !is.na(pseudotime)), aes(x=PC1, y=PC2, color=scaled_pseudotime)) + 
-  geom_point( alpha=1) +
-  scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
-  theme(plot.title = element_text(hjust = 0.5),
-        axis.text.x=element_text(size=14,color="black"),
-        axis.text.y=element_text(size=14, color="black"),
-        axis.title.x = element_text(size=18, color='black'),
-        axis.title.y = element_text(size=18, color='black'),
-        title= element_text(size=20, color='blue'),
-        legend.text=element_text(size=14),
-        legend.position = 'none',
-        panel.background= element_rect(fill = 'white', colour = 'black')) +
-  cowplot::theme_cowplot()+ xlab('tSNE 1') + ylab("tSNE 2") + theme(legend.position = 'none')
-p1
-
-ggsave(file=paste0("Bulb16_merge70_TSNEpsedotimeV2.png"), plot = p1,
-       width = 6.5, height =5, units = "in", dpi = 400)
-
-
-load("pseudotime_tmpList_bulb16_merge70.rds")
-load('posList16_before_merge70_Bulb16rep2.rds')
-posList <- posList16_before_merge70
-sum(sapply(posList, nrow))
-
-
-
-idx_outList <- list()
-for(r in 3:16){
-  idx_outList[[r]] <-  c(order(posList[[r]][,2], decreasing = T)[1:10],
-                         order(posList[[r]][,1])[1:10])
-  
-}
-for(r in 1:2){
-  idx_outList[[r]] <- 25
-}
-pt_size = 0.1
-pList_pseudo <- list()
-for(r in 1:16){ ## each sample
-  # r <- 1
-  
-  
-  message("r = ", r)
-  pseudotime_tmp <- pseudotime_tmpList[[r]]  [-idx_outList[[r]]]
-  indx <- 1:length(pseudotime_tmp)#which(!is.na(pseudotime_tmp))
-  pseudotime_tmp <- pseudotime_tmp[indx]
-  pos_tmp <- posList[[r]][-idx_outList[[r]],][indx,]
-  
-  dat1 <- data.frame(row=pos_tmp[,1], col=pos_tmp[,2], pseudotime=pseudotime_tmp,
-                     scaled_pseudotime = range01(pseudotime_tmp, na.rm=T))
-  med <- quantile(dat1$scaled_pseudotime, 0.6, na.rm=T)
-  ptmp <- ggplot(dat1, aes(x=row, y=col, color=scaled_pseudotime)) + geom_point(size=pt_size, alpha=1) +
-    scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
-    mytheme_graybox()  + theme(legend.position = 'none') 
-  pList_pseudo[[r]]<- ptmp
-  
-  
-}
-library(cowplot)
-pList_pseudo[[1]]
-p12 <- plot_grid(plotlist =pList_pseudo[1:8], nrow=2, ncol=4, byrow=T)
-ggsave(file=paste0("Bulb16_1to8_merge70_psedotime_spatialheatmapV2.png"), plot = p12,
-       width = 12, height =6, units = "in", dpi = 400)
-
-
-# p12 <- plot_grid(plotlist =pList_pseudo[9:16], nrow=2, ncol=4, byrow=T)
-# ggsave(file=paste0("Bulb16_9to16_merge70_psedotime_spatialheatmapV2.png"), plot = p12,
-#        width = 12, height =6, units = "in", dpi = 400)
-# get legend
-ggplot(dat1, aes(x=row, y=col, color=scaled_pseudotime)) + geom_point(size=pt_size) +
-  scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+ theme_bulb16()
-
-##### 5a #####
-
-### 5a upper panel:
-
-setwd(paste0(dir_current, "dataFiles\\Hippo2\\") )
-load("hZ_umap3_tmpList_Method8_Hip2_merge70.rds")
-str(hZ_umap3_tmpList)
-## Add PASTE
-load("paste_umap3_tsne3_tmpList_Hip2_merge70.rds")
-for(r in 1:2){
-  hZ_umap3_tmpList[[r]][["PASTE"]] <- umap3_paste_tmpList[[r]]
-}
-
-load('posList_raw_Hip2.rds')
-idx_outList <- list()
-idx_outList[[1]] <-  5
-idx_outList[[2]] <- order(posList_raw[[2]][,1])[1:4]
-
-nMethod <- 9
-pList_umap_RGB <- list()
-for(r in 1:2){ ## each sample
-  # r <- 1
-  if(r ==1) pt_size = 0.25
-  if(r == 2) pt_size = 0.1
-  message("r = ", r)
-  for(i in 1:nMethod){ ## each method
-    # i <- 1
-    if(i <= nMethod){
-      uMat <- hZ_umap3_tmpList[[r]][[i]][-idx_outList[[r]],]
-      indx <- complete.cases(uMat)
-      uMat <- uMat[indx,]
-      ptmp <- plot_RGB(coordinate_rotate(posList_raw[[r]][-idx_outList[[r]],][indx,], rotate_angles[r]), 
-                       uMat, 
-                       pointsize = pt_size) + theme_hip2()+   scale_x_reverse()
-      
-      
-      pList_umap_RGB[[(r-1)*nMethod+ i]]<- ptmp
-    }
-    
-  }
-  
-}
-library(cowplot)
-# p12 <- plot_grid(plotlist =pList_umap_RGB, nrow=2, ncol=nMethod, byrow=T)
-# ggsave(file="Hip2_merge70_umapRGB.png", plot = p12,
-#        width = 14, height =4, units = "in", dpi = 200)
-
-
-
-## for two samples of PRECAST
-jmethod <- 1
-method_index <- c(jmethod, 9+jmethod)
-p12 <- plot_grid(plotlist = pList_umap_RGB[method_index], nrow=1, ncol=2)
-ggsave(file=paste0("Hip2_merge70_umap_RGB_iDRSC.png"), plot = p12,
-       width = 6, height =3, units = "in", dpi = 400)
-
-### cluster assignment spatial heatmap
-load("clusterAll_tmpList_Method8_Hip2_merge70.rds")
-str(clusterAll_tmpList[[1]])
-load("clusterAll_paste_tmpList_Hip2_merge70.rds")
-for(r in 1:2){
-  clusterAll_tmpList[[r]][["PASTE"]] <- clusterAll_paste_tmpList[[r]]
-}
-
-load('posList_raw_Hip2.rds')
-idx_outList <- list()
-idx_outList[[1]] <-  5
-idx_outList[[2]] <- order(posList_raw[[2]][,1])[1:4]
-
-
-##### domain color selection
-library(ggthemes)
-palettes <- ggthemes_data[["tableau"]][["color-palettes"]][["regular"]]
-names(palettes)
-pal1 <- tableau_color_pal("Classic 20")
-max_n <- attr(pal1, "max_n")
-pal2 <- tableau_color_pal("Classic Blue-Red 12")
-max_n2 <- attr(pal2, "max_n")
-
-cols_cluster <- c( "red2",'green3',"blue", c("#F4737A", "#E8818C", "#DC8F9E", "#D09DB0", "#C5ABC3"),
-                   "#8FBC8F99", c('gold1',paste0("goldenrod",1:2), "goldenrod"),
-                   c("darkolivegreen1", "darkolivegreen3"),c("darkorchid1", "darkorchid3"), pal1(max_n))
-cols_cluster_low_reso <- cols_cluster
-
-### color selection for each method mathched with iDR-SC
-load("mergedSquare70_clusterList_chooseK17_Hip2.rds")
-load("./clusterR3_SCMEB_methods7_Hip2_merge70.rds")
-
-## change the order of clusters
-rawID <- c(10, 11, 1, 7, 17, 8, 15, 13, 3, 9,  4,  16,2, 6, 5, 14, 12)
-names(rawID) <- 1: 17
-### Plot the domain heatmap of iDR-SC
-pList <- list()
-library(Seurat)
-for(r in 1:2){
-  #r <- 1
-  i <- 1
-  cluster_tmp <- clusterAll_tmpList[[r]][[i]][-idx_outList[[r]]]
-  idx <- !is.na(cluster_tmp)
-  cluster_tmp[idx] <- as.numeric(replace_ID(cluster_tmp[idx], rawID))
-  unique_sort <- sort(unique(cluster_tmp))
-  clusterlabel <- factor(cluster_tmp, levels = unique_sort)
-  pos_tmp <- posList_raw[[r]][-idx_outList[[r]],]
-  if(r==1) pt_size <- 0.8
-  if(r==2) pt_size <- 0.5
-  # -40.5 rotation and x reverse for r=2
-  p1 <- plot_scatter(coordinate_rotate(pos_tmp[idx, ], rotate_angles[r]), 
-                     meta_data = data.frame(cluster=clusterlabel[idx]),
-                     label_name = 'cluster', xy_names = c("", ""), no_guides = T,
-                     point_size = pt_size,palette_use = cols_cluster, point_alpha = 0.5) + 
-    theme_hip2() + scale_x_reverse()
-  pList[[r]] <- p1
-  
-}
-library(cowplot)
-p12 <- plot_grid(plotlist =pList, nrow=1, ncol=2)
-ggsave(file="clusterAssign_iDRSC_Hip2_merge70V2.png", plot = p12,
-       width = 6, height =3, units = "in", dpi = 400)
-
-
-### 5a lower upper:
-
-
-load('Hip2_raw_iDRSC_m24_cluster25.rds')
-load("cluster_SCMEB_methodsR3_Hip2_RawRevo.rds")
-load("posList_Hip2_RawRevo.rds")
-cM1 <- cbind("iDR-SC"=unlist(cluster_idrsc_raw), clusterMat)
-load("cluster_SCMEB_methods7_Hip2_RawRevo.rds")
-clusterMat <- cbind(cM1[,1:4], clusterMat[,4:7])
-apply(clusterMat, 2, max)
-MethodNames <- c("iDR-SC", "Seurat V3" ,"Harm-SC-MEB",
-                 "fastMNN-SC-MEB",  "Scanorama-SC-MEB",
-                 "scGen-SC-MEB", "scVI-SC-MEB", 'MEFISTO-SC-MEB')
-clusterMat_sub <- clusterMat[, MethodNames]
-dim(clusterMat_sub)
-indexList <- get_indexList(posList)
-clusterMat <- clusterMat_sub
-rawID <- c(25, 15, 17, 19, 4, 10, 13,  5, 6, 1, 21, 2, 14, 23,  22, 24, 3, 7, 8, 9, 11, 12, 16, 18, 20)
-names(rawID) <- 1:25
-clusterMat[,1] <- as.numeric(replace_ID(clusterMat[,1], rawID))
-
-library(ggthemes)
-palettes <- ggthemes_data[["tableau"]][["color-palettes"]][["regular"]]
-names(palettes)
-pal1 <- tableau_color_pal("Classic 20")
-max_n <- attr(pal1, "max_n")
-pal2 <- tableau_color_pal("Classic Blue-Red 12")
-max_n2 <- attr(pal2, "max_n")
-cols_cluster = c( "#FD7446" ,"#709AE1", "#9EDAE5",
-                  "#DE9ED6" ,"#BCBD22", "#CE6DBD" ,
-                  "#FF9896","#91D1C2", "#C7E9C0" ,
-                  "#6B6ECF", "#7B4173",  pal1(max_n)) # "green4", 'blue',
-cols_cluster[c(5, 15, 17, 25)] <- c( "darkseagreen","green3", "blue","red2")
-cols_cluster[1:25] <- cols_cluster[1:25][rawID] 
-cols_cluster[c(4:8)] <- c("#F4737A", "#E8818C", "#DC8F9E", "#D09DB0", "#C5ABC3")
-cols_cluster[c(9:10)] <- c("#8FBC8F99", "#8FBC8F99") #c('tan1', RColorBrewer::brewer.pal(4, "YlOrRd")[2])
-cols_cluster[c(11:19)] <- #RColorBrewer::brewer.pal(9, "Purples")
-  c(c('gold1',paste0("goldenrod",1), "goldenrod"),#c("darkorchid1", "darkorchid3", "darkorchid4"),
-    color2bar_gradient('steelblue1', 'steelblue3', 3), 
-    color2bar_gradient('pink', 'pink3', 3))
-cols_cluster[20] <- "darkolivegreen1"
-cols_cluster[c(21:23)] <- c(color2bar_gradient("#8FBC8F99", 'green4', 3))#, #c("darkorchid1", "darkorchid3", "darkorchid4") #RColorBrewer::brewer.pal(6, "Greys")[c(3,5, 6)]
-cols_cluster[c(24:25)] <- c("bisque2", 'bisque3')
-
-
-base_cols_cluster <- 1:25
-names(base_cols_cluster) <- cols_cluster[1:25]
-base_cluster <- clusterMat[,1]
-ClusterMat <- clusterMat[,2:8]
-
-
-
-colorList <- c(list(cols_cluster[1:25]), 
-               align_colors(ClusterMat, base_cluster, cols_cluster))
-
-# simutool::colorbar_adj_transparent(cols_cluster[1:25], alpha = 1)
-## find the outlinear point latter
-idx_outList <- list()
-idx_outList[[1]] <- 5
-idx_outList[[2]] <- order(posList[[2]][,1])[1:2]
-
-## ----------------------Plot PRECAST
-
-remove_cluster <- 17:25
-cluster_id_plot <- setdiff(1:25, remove_cluster)
-
-cluster_idrsc <- clusterMat[,1]
-cluster_idrsc_tmp <- cluster_idrsc
-pList <- list()
-for(r in 1:2){
-  # r <- 2
-  pt_size_set <- c(0.8, 0.5)
-  cluster_tmp <- cluster_idrsc_tmp[indexList[[r]]][-idx_outList[[r]]]
-  #cluster_tmp <- replace_ID(cluster_tmp, rawID)
-  idx <- which(cluster_tmp %in% cluster_id_plot)
-  # cluster_tmp[-idx] <- NA
-  unique_sort <- sort(unique(cluster_tmp))
-  clusterlabel <- factor(cluster_tmp)
-  
-  pos_tmp <- posList[[r]][-idx_outList[[r]],]
-  
-  dat1 <- data.frame(coordinate_rotate(pos_tmp, rotate_angles[r]))
-  colnames(dat1) <- c("row", "col")
-  ptmp <- ggplot(data=dat1, aes(x=row, y=col)) + geom_point(fill='gray', color='gray', size=0.05, alpha=0.5)+ 
-    mytheme_graybox()+  scale_x_reverse()
-  tmpdat <- cbind(coordinate_rotate(pos_tmp[idx, ], rotate_angles[r]),
-                  as.numeric(clusterlabel[idx]))
-  order_idx <- order(tmpdat[,3], decreasing = T)
-  colnames(tmpdat) <- c("row1", "col1", "cluster")
-  tmpdat <- as.data.frame(tmpdat)
-  tmpdat$cluster <- factor(tmpdat$cluster)
-  tmpp <- ptmp + geom_point(data= tmpdat[order_idx,], aes(x=row1, y=col1,color=cluster), size=pt_size_set[r]/4)+
-    scale_color_manual(values=cols_cluster[cluster_id_plot])+theme_hip2() + theme(legend.position = 'none')
-  
-  pList[[r]] <- tmpp
-}
-
-p12 <- cowplot::plot_grid(plotlist=pList, nrow=1, ncol=2)
-ggsave(file="Assign_iDRSC_Hip2.png", plot = p12,
-       width = 6, height =3, units = "in", dpi = 400)
-
-
-
-
-load("Hip2RawRevo_RGB_hZ_umapList_allsample.rds")
-str(hZ_umap3List_allsample)
-load("posList_Hip2_RawRevo.rds")
-load("umap_tsne3_idrsc_mPotts24_Hip2.rds")
-hZ_umap3List_allsample[[1]] <- umap3_idrsc
-
-str(posList)
-# change the location of Harmony and Seurat V3
-indexList <- get_indexList(posList)
-hZ_umap3List_allsample[2:3] <- hZ_umap3List_allsample[3:2]
-names(hZ_umap3List_allsample)[2:3] <- names(hZ_umap3List_allsample)[3:2]
-
-idx_outList <- list()
-idx_outList[[1]] <-  5
-idx_outList[[2]] <- order(posList[[2]][,1])[1:2]
-
-## iDR-SC UMAP
-pList_umap_RGB <- list()
-for(r in 1:2){## each sample
-  # r <- 1
-  
-  message("r = ", r)
-  if(r == 1) pt_size <- 0.2
-  if(r == 2) pt_size <- 0.1
-  
-  pt_size_set <- c(0.8, 0.5)
-  cluster_tmp <- cluster_idrsc_tmp[indexList[[r]]][-idx_outList[[r]]]
-  
-  idx <- which(cluster_tmp %in% cluster_id_plot)
-  # cluster_tmp[-idx] <- NA
-  unique_sort <- sort(unique(cluster_tmp))
-  clusterlabel <- factor(cluster_tmp)
-  
-  pos_tmp <- coordinate_rotate(posList[[r]][-idx_outList[[r]],], rotate_angles[r])
-  
-  tmpdat <- cbind(coordinate_rotate(pos_tmp[idx, ], rotate_angles[r]),
-                  as.numeric(clusterlabel[idx]))
-  order_idx <- order(tmpdat[,3], decreasing = T)
-  
-  
-  idx_tmp <- indexList[[r]][-idx_outList[[r]]]
-  ptmp <- plot_RGB(pos_tmp[idx,][order_idx,], hZ_umap3List_allsample[[1]][idx_tmp[idx], ][order_idx,],
-                   pointsize = pt_size) +theme_hip2()+scale_x_reverse() + 
-    theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank())
-  
-  pList_umap_RGB[[r]]<- ptmp 
-  
-  
-}
-
-p12 <- plot_grid(plotlist = pList_umap_RGB, nrow=1, ncol=2)
-ggsave(file=paste0("Hip2_RawRevo_umap_RGB_iDRSC.png"), plot = p12,
-       width = 6, height =3, units = "in", dpi = 400)
-
-
-##### 5b #####
-
-### tSNE plots vs sample and clusters
-load("hip2_merge70_tsne2_allMethods.rds")
-str(tsne2List)
-head(meta_data)
-rawID <- c(10, 11, 1, 7, 17, 8, 15, 13, 3, 9,  4,  16,2, 6, 5, 14, 12)
-names(rawID) <- 1: 17
-meta_data$cell_type <- factor(replace_ID(meta_data$cell_type, rawID), levels=1:17)
-load("tsne2_paste_hip2_merge70.rds")
-tsne2List[["PASTE"]] <- hZ_tsne2_paste
-
-cols_sample <- gg_color_hue(2)
-
-cols_cluster2 <- cols_cluster_low_reso
-cols_cluster2[2] <- 'green3'
-colorbar_adj_transparent(cols_cluster2)
-library(ggplot2)
-str(tsne2List)
-
-pt_size_sample <- 0.6; pt_alpha_sample <- 0.6
-pt_size_cluster <- 0.6; pt_alpha_cluster <- 0.6
-base_axis_size <- 20
-
-pList_sample <- list(); pList_cluster <- list()
-for(j in 1:10){ # length(tsne2List)
-  message('j = ', j)
-  pList_sample[[j]] <- plot_scatter(tsne2List[[j]], meta_data, label_name = 'sample', border_col='gray13',
-                                    base_size=base_axis_size,palette_use=cols_sample, point_size = pt_size_sample, 
-                                    point_alpha = pt_alpha_sample,no_guides=T) + labs(x=NULL, y=NULL)
-  pList_cluster[[j]] <- plot_scatter(tsne2List[[j]], meta_data, label_name = 'cell_type', base_size=20,
-                                     palette_use=cols_cluster2, point_size = pt_size_cluster, border_col='gray13',
-                                     point_alpha =pt_alpha_cluster,no_guides=T) + labs(x=NULL, y=NULL)
-}
-names(pList_sample) <-names(pList_cluster) <-  names(tsne2List)
-pList_sample[[1]]
-library(cowplot)
-subnames <- c("iDR-SC" ,"Seurat V3", "Harmony","fastMNN", "Uncorrected")
-
-p12 <- plot_grid(plotlist =pList_sample[subnames], nrow=1, ncol=5)
-ggsave(file="tsne_sample_heatmap_Hip2_merge70.png", plot = p12,
-       width = 25, height =5, units = "in", dpi = 1000)
-pList_cluster[[1]]
-
-p1 <- pList_cluster[[1]]
-pList_cluster[[1]] <- Seurat::  LabelClusters(p1, id='cell_type', repel = T, 
-                                              size = 6, color = 'white', 
-                                              box = T, position = "nearest")
-p12 <- plot_grid(plotlist =pList_cluster[subnames], nrow=1, ncol=5)
-ggsave(file="tsne_cluster_heatmap_Hip2_merge70.png", plot = p12,
-       width = 25, height =5, units = "in", dpi = 500)
-plot_scatter(tsne2List[[1]], meta_data, label_name = 'cell_type', base_size=20,
-             palette_use=cols_cluster2, 
-             point_size = pt_size_cluster, 
-             point_alpha =pt_alpha_cluster,no_guides=F)
-
-# subnames2 <- c("Scanorama",  "scGen", "scVI", "MEFISTO", "PASTE")
-# p12 <- plot_grid(plotlist =pList_sample[subnames2], nrow=1, ncol=5)
-# ggsave(file="tsne_Py4_sample_heatmap_Hip2_merge70.png", plot = p12,
-#        width = 25, height =5, units = "in", dpi = 200)
-# p12 <- plot_grid(plotlist =pList_cluster[subnames2], nrow=1, ncol=5)
-# ggsave(file="tsne_Py4_cluster_heatmap_Hip2_merge70.png", plot = p12,
-#        width = 25, height =5, units = "in", dpi = 200)
-
-
-##### 5c #####
-rawID <- c(10, 11, 1, 7, 17, 8, 15, 13, 3, 9,  4,  16,2, 6, 5, 14, 12)
-names(rawID) <- 1: 17
-load("housekeep_dat_degs_Hip2_merge70.rds")
-dat_degs$cluster <- factor(replace_ID(as.numeric(dat_degs$cluster), rawID = rawID), 
-                           levels = 1:length(rawID))
-
-dat_degs <- dat_degs[order(dat_degs$cluster),]
-load("seuAll_hip2_merge70.rds")
-library(dplyr)
-library(Seurat)
-n <- 5
-dat_degs %>%
-  group_by(cluster) %>%
-  top_n(n = n, wt = avg_log2FC) -> top10
-
-seu@assays$RNA@var.features <- row.names(seu)
-seu <- ScaleData(seu)
-seus <- subset(seu, downsample = 4000)
-color_id <- as.numeric(levels(Idents(seus)))
-
-
-## HeatMap
-p1 <- doHeatmap(seus, features = top10$gene, cell_label= "Domain",
-                grp_label = F, grp_color = cols_cluster_low_reso[color_id],
-                pt_size=6,slot = 'scale.data') + 
-  theme(legend.text = element_text(size=16),
-        legend.title = element_text(size=18, face='bold'),
-        axis.text.y = element_text(size=7, face= "italic", family='serif'))
-
-ggsave(paste0('./Hip2All_merge70',"_top",n,"DEGs_heatmap_reOrder.pdf"), plot = p1, 
-       width = 10, height = 8, units = "in", dpi = 1000)
-##### 5d #####
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(ggrepel)
-library(ggpubr)
-library(ggthemes)
-library(cowplot)
-library(Matrix)
-library(data.table)
-library(reshape2)
-load("Hip2_Merge70_clusterK17_renumber_idrsc.rds")
-st_data <- readRDS("mergedSquare70_seulist_slideV2_mouseHip2.RDS")
-
-## combine the weight matrix first
-slice_set <- 1
-norm_weights = read.csv(paste('./hippo_decon_update/output_weights_my_dge_hippo_mergedSquare70_st',slice_set,'.csv',sep=""),row.names=1)
-norm_weights[1:4, 1:5]
-dim(norm_weights)
-row.names(norm_weights) <- paste0(row.names(norm_weights), "_hip1")
-slice_set <- 2
-norm_weights2 = read.csv(paste('./hippo_decon_update/output_weights_my_dge_hippo_mergedSquare70_st',slice_set,'.csv',sep=""),row.names=1)
-norm_weights2[1:4, 1:5]
-row.names(norm_weights2) <- paste0(row.names(norm_weights2), "_hip2")
-norm_weights <- rbind(norm_weights, norm_weights2)
-dim(norm_weights)
-colnames(norm_weights)
-
-## revise cell names
-colnames(norm_weights)[colnames(norm_weights) =='Choroid_plexus'] = 'Choroid plexus'
-colnames(norm_weights)[colnames(norm_weights) =='Cajal_Retzius'] = 'Cajal-Retzius'
-colnames(norm_weights)[colnames(norm_weights) =='Endothelial_stalk'] = 'Endothelial stalk'
-colnames(norm_weights)[colnames(norm_weights) =='Endothelial_tip'] = 'Endothelial tip'
-colnames(norm_weights)[colnames(norm_weights) =='Entorhinal.cortex'] = 'Entorhinal cortex'
-colnames(norm_weights)[colnames(norm_weights) =='Deep.layer.subiculum'] = 'Deep layer subiculum'
-colnames(norm_weights)[colnames(norm_weights) =='Entorhinal.cortex..IEG.'] = 'Entorhinal cortex (IEG)'
-colnames(norm_weights)[colnames(norm_weights) =='Dentate.principal'] = 'Dentate principal'
-colnames(norm_weights)[colnames(norm_weights) =='CA1.principle.anterior'] = 'CA1 principal (Anterior)'
-colnames(norm_weights)[colnames(norm_weights) =='CA1.principal'] = 'CA1 principal'
-colnames(norm_weights)[colnames(norm_weights) =='Anterior.Subiculum..proximal.to.CA1'] = 'Anterior subiculum, proximal to CA1'
-
-colnames(norm_weights)[colnames(norm_weights) =='Lateral.CA3.principal'] = 'CA3 principal (Lateral)'
-colnames(norm_weights)[colnames(norm_weights) =='Dentate.hilum'] = 'Dentate hilum'
-colnames(norm_weights)[colnames(norm_weights) =='MyelinProcesses'] = 'Myelin processes'
-colnames(norm_weights)[colnames(norm_weights) =='Layer.6'] = 'Layer 6'
-colnames(norm_weights)[colnames(norm_weights) =='Layer.5'] = 'Layer 5'
-colnames(norm_weights)[colnames(norm_weights) =='Medial.habenula'] = 'Medial habenula'
-colnames(norm_weights)[colnames(norm_weights) =='Medial.habenular..lateral.portion'] = 'Medial habenula (Lateral)'
-
-colnames(norm_weights)[colnames(norm_weights) =='Lateral.habenula'] = 'Lateral habenula'
-colnames(norm_weights)[colnames(norm_weights) =='MyelinProcesses'] = 'Myelin processes'
-colnames(norm_weights)[colnames(norm_weights) =='Lateral.Geniculate.Nucleus...LGN.'] = 'Lateral geniculate nucleus'
-colnames(norm_weights)[colnames(norm_weights) =='Lateral.dorsal.thalamic.nuclei..LD.'] = 'Lateral dorsal thalamic nuclei (LD)'
-####
-level_names <- c("CA1 principal (Anterior)", "CA1 principal", "Anterior subiculum, proximal to CA1", 
-                 "CA2", "CA3", "CA3 principal (Lateral)", "Dentate principal",  "Dentate hilum" , 
-                 "Interneuron",  "Neuron"  ,  "Neurogenesis"  ,                                               
-                 "Macrophage"  ,                        "Ependymal"  ,
-                 "Layer 6"      ,                       "Layer 5"  , 
-                 "Microglia"  , "Astrocyte" ,     "Oligodendrocyte" ,
-                 "Choroid plexus",                                        
-                 "Cajal-Retzius", "Endothelial stalk",  "Endothelial tip"   ,              
-                 "Entorhinal cortex",    "Entorhinal cortex (IEG)"  ,             
-                 "Deep layer subiculum"   ,    "Mural" ,                    
-                 "Myelin processes"   ,                 "Polydendrocyte" ,                    
-                 "Medial habenula"  ,                   "Medial habenula (Lateral)",   
-                 "Lateral habenula" ,                   "Lateral geniculate nucleus"  ,       
-                 'Lateral dorsal thalamic nuclei (LD)'   )
-
-
-cluster_id = as.data.frame(unlist(cluster_idrsc_renumber))
-rownames(cluster_id) = c(paste0(colnames(st_data[[1]]), "_hip1"), 
-                         paste0(colnames(st_data[[2]]), "_hip2"))
-colnames(cluster_id) = "Cluster"
-cluster_weight = merge(norm_weights,cluster_id,by = 0)
-rownames(cluster_weight) = cluster_weight$Row.names
-cluster_weight = cluster_weight[,-1]
-
-percentage = as.data.frame(cluster_weight %>% group_by(Cluster) %>% summarise(across(everything(), sum)))
-percentage = percentage[order(as.numeric(percentage$Cluster)),]
-percentage$Cluster = as.numeric(percentage$Cluster)
-percentage_long <- melt(as.data.frame(percentage),id.vars ='Cluster')
-
-cols_group <- c(ggthemes::tableau_color_pal("Tableau 20")(20), 
-                ggthemes::tableau_color_pal("Classic 20")(20)[c(5,7,11, 15)],
-                tune_colors(ggthemes::tableau_color_pal("Classic 10 Light")(10)[-1], alpha = 0.4))
-cols_group <- c(cols_group[1:2],"#aec7e866", "tan2", cols_group[3:33])
-
-scale_flag <- c(TRUE,FALSE)
-need_scale <- T
-pList <- list()
-for(ii in 1:2){
-  
-  if (need_scale == scale_flag[[ii]]){
-    geom_bar_position = 'stack'
-  }else{
-    geom_bar_position = 'fill'
-  }
-  if (need_scale == scale_flag[[ii]]){
-    percentage_scale = matrix(0,nrow(percentage),ncol(percentage))
-    for (tt in 1:nrow(percentage)){
-      percentage_scale[tt,] = as.numeric(cbind(percentage$Cluster[tt],percentage[tt,2:ncol(percentage)]/sum(rowSums(percentage[,2:ncol(percentage)]))))
-    }
-    colnames(percentage_scale) = colnames(percentage)
-    #sum(percentage_scale[,2:ncol(percentage)])
-    percentage_long <- melt(as.data.frame(percentage_scale),id.vars ='Cluster')
-  }
-  percentage_long$variable <- factor(percentage_long$variable, levels=level_names)
-  
-  if(ii==1){
-    pList[[ii]] <- bar_plot_hip2(percentage_long,geom_bar_position=geom_bar_position, 
-                            legend_position='none', fill_color = cols_group,
-                            title_name = paste0(""))
-  }else{
-    pList[[ii]] <- bar_plot_hip2(percentage_long,geom_bar_position=geom_bar_position, 
-                            legend_position='right', fill_color = cols_group,
-                            title_name = paste0(""))
-  }
-  pList[[ii]] <- pList[[ii]] + theme(
-    text = element_text(size = 14),
-    axis.text = element_text(size = 14))
-  
-  
-}
-figure_celltype_percentage <- ggarrange(plotlist = pList,ncol=2,nrow=1,align='hv',common.legend = T,
-                                        legend = 'right')
-
-ggsave(file='./result/combined_Low_percentage.png', plot =figure_celltype_percentage, 
-       width = 19, height = 5, units = "in", bg = 'white', dpi = 1000,limitsize = F)
-##### 5e #####
-##### Start plot the pseudotime distribution on spatial coordinates
-load("pseudotime_tmpList_hip2_merge70.rds")
-
-pList_pseudo <- list()
-for(r in 1:2){ ## each sample
-  # r <- 1
-  if(r ==1) pt_size = 0.25
-  if(r == 2) pt_size = 0.1
-  message("r = ", r)
-  pseudotime_tmp <- pseudotime_tmpList[[r]]  [-idx_outList[[r]]]
-  indx <- which(!is.na(pseudotime_tmp))
-  pseudotime_tmp <- pseudotime_tmp[indx]
-  pos_tmp <- coordinate_rotate(posList_raw[[r]][-idx_outList[[r]],][indx,], rotate_angles[r])
-  
-  dat1 <- data.frame(row=pos_tmp[,1], col=pos_tmp[,2], pseudotime=pseudotime_tmp)
-  med <- quantile(dat1$pseudotime, 0.3)
-  ptmp <- ggplot(dat1, aes(x=row, y=col, color=pseudotime)) + 
-    geom_point(size=pt_size, alpha=1) +
-    #scale_color_gradientn(colours = c("red", "green"))+ 
-    scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
-    #scale_color_gradientn(colours = c("#96B5E9", "#F54902"))+
-    #scale_color_gradient2(low = "#00008BCC",mid="#228B22CC", high = "#FFFF33", midpoint = med)+
-    theme_hip2()+   scale_x_reverse() + theme(legend.position = 'none')
-  
-  pList_pseudo[[r]]<- ptmp
-  
-  
-}
-library(cowplot)
-#pList_pseudo[[2]]
-p12 <- plot_grid(plotlist =pList_pseudo, nrow=1, ncol=2, byrow=T)
-ggsave(file=paste0("Hip2_merge70_psedotime_spatialheatmapV2.png"), plot = p12,
-       width = 7, height =3, units = "in", dpi = 400)
-
-
-
-load("pseudo.slingshot_hip2_merge70.rds")
-load("hip2_merge70_tsne2_allMethods.rds")
-tsne_idrsc <- tsne2List[[1]]
-
-dat1 <- data.frame(PC1=tsne_idrsc[,1], PC2=tsne_idrsc[,2], pseudotime=pseudo.slingshot,
-                   scaled_pseudotime = range01(pseudo.slingshot, na.rm=T))
-library(ggplot2)
-
-med <- quantile(dat1$scaled_pseudotime, 0.3, na.rm=T)
-ggplot(dat1, aes(x=PC1, y=PC2, color=scaled_pseudotime)) + geom_point(alpha=1) +
-  scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
-  theme(plot.title = element_text(hjust = 0.5),
-        axis.text.x=element_text(size=14,color="black"),
-        axis.text.y=element_text(size=14, color="black"),
-        axis.title.x = element_text(size=18, color='black'),
-        axis.title.y = element_text(size=18, color='black'),
-        title= element_text(size=20, color='blue'),
-        legend.text=element_text(size=14),
-        legend.position = 'none',
-        panel.background= element_rect(fill = 'white', colour = 'black')) +
-  cowplot::theme_cowplot()+ xlab('tSNE 1') + ylab("tSNE 2")

@@ -98,6 +98,7 @@ ggsave(file="./output_figs/Liver8_tsne_cluster_heatmap.png", plot = p12,
 
 ##### 3c #####
 library(Seurat)
+load("seu_DEG_heatmap_combinedSample.rds")
 seu <- seuAll
 seu@assays$RNA@var.features <- row.names(seu)
 seu <- ScaleData(seu)
@@ -107,6 +108,7 @@ color_id <- as.numeric(levels(Idents(seu)))
 genes_use <- c("Cyp2e1", "Oat", "Cyp2c37", "Gulo", "Glul", "Slc1a2", 'Cyp2d9', "Gstm3", 
                "Malat1", "Cox1","Hamp2", "Cyp3a44", "Gsn", "Dpt","Vim", "Tagln",  
                "Cyp2f2", "Sds", "Hal", "Ctsc", "Aldh1b1", "Hsd17b13", "Spp1")
+
 
 p1 <- doHeatmap(seu, features = genes_use, cell_label= "Domain",
                 grp_label = F, grp_color = cols_cluster[color_id],

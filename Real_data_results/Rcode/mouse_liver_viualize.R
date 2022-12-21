@@ -136,7 +136,7 @@ posList <- lapply(metadata_filter2List, function(x){
 color_pal = list("#CB181D","#EF3B2C","#FB6A4A","#FC9272","#FCBBA1","#1f77b4","#ff7f0e","#2ca02c","#c5b0d5")
 
 # sample 1: slice 1 to 3
-
+dat_List_all <- list()
 figure_list = list()
 for (slice_set in 1:3){
   # slice_set <- 1
@@ -154,8 +154,9 @@ for (slice_set in 1:3){
   
   ct_set =  colnames(cluster_weight)[1:6]#[1:6] #"Hepatocyte_Alb.high" # "B.cell_Jchain.high" #
   head(cluster_weight)
+  tmpList <- list()
   for(jj in 1: length(ct_set)){
-    ## jj <- 2
+    ## jj <- 1
     ct <- ct_set[jj]
     plot_val = as.data.frame(cluster_weight[,ct])
     rownames(plot_val) = rownames(cluster_weight)
@@ -188,6 +189,8 @@ for (slice_set in 1:3){
     
     my_table$Proportion[ my_table$Proportion > med] <- med
     my_table$Proportion <- range01(my_table$Proportion)
+    
+    tmpList[[jj]] <- my_table
     plot <- ggplot(my_table, aes(x = row, y = col)) + 
       geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 5,pch=21) +
       scale_fill_gradientn(colors = c("#361A95","white", "#D62728")) +  # ,limits = ylimit,#FBA536
@@ -201,6 +204,7 @@ for (slice_set in 1:3){
     figure_list[[((slice_set-1) * length(ct_set) + jj)]] <- plot #+ coord_fixed() # + xlim(xlim) + ylim(ylim)
     
   }
+  dat_List_all[[slice_set]] <- tmpList
 }
 
 

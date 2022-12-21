@@ -16,6 +16,8 @@ hZ_umap3List_allsample[["PASTE"]] <- hZ_umap3_paste
 indexList <- get_indexList(posList)
 hZ_umap3List_allsample[2:3] <- hZ_umap3List_allsample[3:2]
 names(hZ_umap3List_allsample)[2:3] <- names(hZ_umap3List_allsample)[3:2]
+
+
 ### Plot 151674, r=10
 pList_umap_RGB_r10 <- list()
 for(i in 1:9){ ## each method
@@ -213,6 +215,7 @@ colnames(ariMat_sub) <- main_order_names[-9]
 load("./paste_ARI_NMI_allsample_brain12.rds")
 ari_paste <- cluster_meaMat_paste_allsample[,1]
 colnames(ariMat_sub)[1] <- iDR_SC_newname
+
 p1 <- volinPlot_real(cbind(ariMat_sub, "PASTE"=ari_paste), cols=cols_alpha2 ) + theme(legend.position = 'bottom')
 
 
@@ -344,7 +347,7 @@ ggsave(file="GO_Enrichment_pseudogenes_brain12.png", plot =p1,
        width = 13, height =2.5, units = "in", dpi = 500)
 
 
-##### 2f #####
+##### 2h #####
 load('profiler_termList_brain12.rds')
 library(gprofiler2)
 library(ggplot2)

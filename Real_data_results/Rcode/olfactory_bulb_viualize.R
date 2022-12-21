@@ -46,6 +46,7 @@ names(rawID) <- 1: 12
 pList <- list()
 pt_size <- 0.2
 point_alpha <- 0.8
+datList <- list()
 for(r in 1:16){
   # r <- 8
   message('r = ', r)
@@ -65,12 +66,14 @@ for(r in 1:16){
     posList[[r]] 
   } 
   if(r != 9){
+    datList[[r]] <- cbind(pos_tmp[idx, ], clusterlabel)
     ptmp <- plot_scatter(pos_tmp[idx, ], 
                          meta_data = data.frame(cluster=clusterlabel),
                          label_name = 'cluster', xy_names = c("", ""), no_guides = T,
                          point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
       theme_bulb16()
   }else{
+    datList[[r]] <- cbind(pos_tmp[idx, ][-32115 ,], clusterlabel)
     ptmp <- plot_scatter(pos_tmp[idx, ][-32115 ,], meta_data = data.frame(cluster=clusterlabel),
                          label_name = 'cluster', xy_names = c("", ""), no_guides = T,
                          point_size = pt_size,palette_use = cols_cluster[unique_sort], point_alpha = point_alpha) + 
@@ -202,6 +205,7 @@ str(posList[[1]])
 slice_set_sequence = 1
 need_scale = T
 figure_list = list()
+datList <- list()
 for (slice_set in slice_set_sequence){
   # slice_set <- 1
   norm_weights = read.csv(paste('deconvoltion_results_new/output_weights_bulb_st',slice_set,'.csv',sep=""),row.names=1)
@@ -260,6 +264,7 @@ for (slice_set in slice_set_sequence){
   
   percentage_long$Cluster <- factor(percentage_long$Cluster, levels = 1:12)
   
+  datList[[slice_set]] <- percentage_long
   if (slice_set == 1){
     figure_list[[slice_set]] <- bar_plot(percentage_long,geom_bar_position=geom_bar_position, legend_position='right',
                                          color_pal =cols_cluster )
@@ -352,6 +357,7 @@ for(r in 1:2){
 }
 pt_size = 0.1
 pList_pseudo <- list()
+datList <- list()
 for(r in 1:16){ ## each sample
   # r <- 1
   
@@ -364,7 +370,9 @@ for(r in 1:16){ ## each sample
   
   dat1 <- data.frame(row=pos_tmp[,1], col=pos_tmp[,2], pseudotime=pseudotime_tmp,
                      scaled_pseudotime = range01(pseudotime_tmp, na.rm=T))
+  dat1$Sample <- r
   med <- quantile(dat1$scaled_pseudotime, 0.6, na.rm=T)
+  datList[[r]] <- dat1[,-3]
   ptmp <- ggplot(dat1, aes(x=row, y=col, color=scaled_pseudotime)) + geom_point(size=pt_size, alpha=1) +
     scale_color_gradientn(colours = c( "#FFBB78", "#96B5E9", "#F54902"))+
     mytheme_graybox()  + theme(legend.position = 'none') 

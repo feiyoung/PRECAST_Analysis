@@ -24,7 +24,9 @@ names(hZ_umap3List_allsample)[2:3] <- names(hZ_umap3List_allsample)[3:2]
 
 
 ### Plot iDR-SC for 4 samples
+
 pList_idrsc_umap_RGB <- list()
+datList <- list()
 for(r in 1:4){## each sample
   # i <- 1
   
@@ -34,6 +36,10 @@ for(r in 1:4){## each sample
     message("r = ", r)
     pt_size = 0.5
     if(r == 1) pt_size= 0.3
+    dat_tmp <- as.data.frame(cbind(posList1[[r]], hZ_umap3List_allsample[[i]][indexList[[r]],]))
+    dat_tmp$Sample <- paste0("HCC", r)
+    colnames(dat_tmp) <- c("Coord x", "Coord y", "UMAP1", "UMAP2", "UMAP3", "Sample")
+    datList[[r]] <- dat_tmp
     ptmp <- plot_RGB(posList1[[r]], hZ_umap3List_allsample[[i]][indexList[[r]],], pointsize = 0.8) +
       mytheme_graybox(border_color = 'white') + xlim(c(0,77)) + ylim(c(1,120)) + geom_point(alpha=0.5)
     pList_idrsc_umap_RGB[[r]]<- ptmp 
@@ -75,6 +81,7 @@ for(j in 1){ ## each method
   for(r in 1:4){ ## each sample
     message("r = ", r)
     cluster_tmp <- factor(clusterMat_sub[indexList[[r]],j])
+    datList[[r]]$Domain <- cluster_tmp
     p_tmp <- plot_scatter(posList1[[r]], meta_data = data.frame(cluster=cluster_tmp),
                           label_name = 'cluster', xy_names = c("", ""), no_guides = T,
                           point_size = 1.0,palette_use = cols_cluster[as.numeric(levels(cluster_tmp))], point_alpha = 0.6) + 
@@ -203,6 +210,7 @@ load("HCC4_posList.rds")
 color_pal = list("#CB181D","#EF3B2C","#FB6A4A","#FC9272","#FCBBA1","#1f77b4","#ff7f0e","#2ca02c","#c5b0d5")
 slice_set_sequence = seq(1,4)
 need_scale = T
+datList <- list()
 figure_list = list()
 for (slice_set in slice_set_sequence){
   norm_weights = read.csv(paste('hcc_deconvolution/output_weights_geo125set1_rctd_st',slice_set,'.csv',sep=""),row.names=1)
@@ -236,7 +244,8 @@ for (slice_set in slice_set_sequence){
   level_names <- c("Malignant cell","Immune cell","CAF","TAM","HPC-like cell") 
   percentage_long$variable <- factor(percentage_long$variable, levels=level_names)
   levels(percentage_long$variable)
-  
+  percentage_long$Sample <- paste0("HCC", slice_set)
+  datList[[slice_set]] <- percentage_long
   if (slice_set == 4){
     figure_list[[slice_set]] <- bar_plot(percentage_long,geom_bar_position=geom_bar_position, legend_position='right',
                                          color_pal = ggthemes::tableau_color_pal()(5)[c(3,2,5,1,4)])}else{
@@ -260,7 +269,6 @@ if(need_scale){
 load("HCC4_clusterK9_renumber_idrsc.rds")
 load("HCC4_posList.rds")
 
-setwd("D:\\LearnFiles\\Research paper\\IntegrateDRcluster\\RealData\\Rcode\\HCC4Data")
 color_pal = list("#CB181D","#EF3B2C","#FB6A4A","#FC9272","#FCBBA1","#1f77b4","#ff7f0e","#2ca02c","#c5b0d5")
 
 cols_cluster <- c("#CB181D", "#EF3B2C", "#FB6A4A", "#FC9272", "#FCBBA1",
@@ -293,6 +301,10 @@ for (slice_set in 1:4){
   barcodes = rownames(plot_val)
   my_table = st_coord[barcodes, ]
   my_table$Proportion = plot_val[barcodes,]
+  my_table$Proportion <- range01(my_table$Proportion)
+  med <- quantile(my_table$Proportion, 0.94)
+  my_table$Proportion[ my_table$Proportion > med] <- med
+  
   my_table$cluster = cluster_weight[barcodes,'y']
   ylimit = c(0, 1)
   
@@ -311,8 +323,9 @@ for (slice_set in 1:4){
   table(my_table$cluster)
   
   plot <- ggplot(my_table, aes(x =imagerow , y = imagecol)) + 
-    geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 5,pch=21,colour = my_table$border_color) +
-    scale_fill_gradientn(colors = my_pal,limits = ylimit) + 
+    geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 5,pch=21) +
+    #scale_fill_gradientn(colors = my_pal,limits = ylimit) + ,colour = my_table$border_color
+    scale_fill_gradientn(colors = c("#361A95","white", "#D62728")) +
     scale_shape_identity() + scale_size_identity() + theme_classic() +
     mytheme_graybox(base_size = 28)
   
@@ -356,6 +369,12 @@ for (slice_set in 1:4){
   barcodes = rownames(plot_val)
   my_table = st_coord[barcodes, ]
   my_table$Proportion = plot_val[barcodes,]
+  
+  my_table$Proportion <- range01(my_table$Proportion)
+  med <- quantile(my_table$Proportion, 0.94)
+  my_table$Proportion[ my_table$Proportion > med] <- med
+  
+  
   my_table$cluster = cluster_weight[barcodes,'y']
   ylimit = c(0, 1)
   
@@ -374,8 +393,9 @@ for (slice_set in 1:4){
   head(my_table)
   
   plot <- ggplot(my_table, aes(x = imagerow, y = imagecol)) + 
-    geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 3,pch=21,colour = my_table$border_color) +
-    scale_fill_gradientn(colors = my_pal,limits = ylimit) + 
+    geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 3,pch=21) +
+    #scale_fill_gradientn(colors = my_pal,limits = ylimit) + colour = my_table$border_color
+    scale_fill_gradientn(colors = c("#361A95","white", "#D62728")) +
     scale_shape_identity() + scale_size_identity() + theme_classic() +
     mytheme_graybox(base_size = 28)
   
@@ -422,6 +442,10 @@ for (slice_set in 1:4){
   barcodes = rownames(plot_val)
   my_table = st_coord[barcodes, ]
   my_table$Proportion = plot_val[barcodes,]
+  my_table$Proportion <- range01(my_table$Proportion)
+  med <- quantile(my_table$Proportion, 0.94)
+  my_table$Proportion[ my_table$Proportion > med] <- med
+  
   my_table$cluster = cluster_weight[barcodes,'y']
   ylimit = c(0, 1)
   
@@ -441,8 +465,9 @@ for (slice_set in 1:4){
   head(my_table)
   
   plot <- ggplot(my_table, aes(x = imagerow, y = imagecol)) + 
-    geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 3.5,pch=21,colour = my_table$border_color) +
-    scale_fill_gradientn(colors = my_pal,limits = ylimit) + 
+    geom_point(aes(fill = Proportion),size = 2.3, stroke = my_table$stroke,alpha = 3.5,pch=21) +
+    #scale_fill_gradientn(colors = my_pal,limits = ylimit) +  # ,colour = my_table$border_color
+    scale_fill_gradientn(colors = c("#361A95","white", "#D62728")) +
     scale_shape_identity() + scale_size_identity() + theme_classic() +
     mytheme_graybox(base_size = 28)
   

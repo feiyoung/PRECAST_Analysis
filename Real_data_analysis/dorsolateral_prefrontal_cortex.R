@@ -66,7 +66,7 @@ getXList <- function(seuList, genelist){
     indexList[[i]] <- (nr+1):(nrow(XList[[i]] )+nr)
     nr <- nr + nrow(XList[[i]] )
     y <- seuList[[i]]$layer_guess_reordered
-    y[is.na(y)] <- "WM"
+    y[is.na(y)] <- "NA"
     yList[[i]] <- y
     posList[[i]] <- cbind(seuList[[i]]$row, seuList[[i]]$col)
   }

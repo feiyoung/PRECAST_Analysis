@@ -1,3 +1,16 @@
+
+# Define some functions ---------------------------------------------------
+
+#### Clustering metric
+cluster_metric <- function(hy, y, type='ARI'){
+  
+  require(mclust)
+  require(aricode)
+  switch(type, 
+         ARI= adjustedRandIndex(hy, y),
+         NMI = NMI(as.vector(hy), y))
+}
+
 # Load data and preprocessing ---------------------------------------------
 library(PRECAST)
 library(SingleCellExperiment)
@@ -6,10 +19,13 @@ library(Matrix)
 library(dplyr)
 name_ID12 <- as.character(c(151507, 151508, 151509, 151510, 151669, 151670,
                             151671, 151672, 151673, 151674, 151675, 151676))
+
+
+## Read data in an online manner
 name_ID <- name_ID12
 n_ID <- length(name_ID)
-#num_cut <- 2000
-# XrawList <- list()
+url_sparkA <- "https://github.com/feiyoung/DR-SC.Analysis/raw/main/data/DLPFC_data/brain_"; url_sparkB <- "_spark.Rdata"
+url_brainA <- "https://github.com/feiyoung/DR-SC.Analysis/raw/main/data/DLPFC_data/"; url_brainB <- ".rds"
 posList <- list()
 # genesList <- list()
 yList <- list()
@@ -20,8 +36,8 @@ for(iter in 1:n_ID){
   
   cat('input brain data', iter, '\n')
   # load and read data
-  dlpfc <- readRDS(paste0( name_ID[iter], ".rds") )
-  load(paste0("brain_", name_ID[iter],"_spark.Rdata") )
+  dlpfc <- readRDS(url(paste0(url_brainA, name_ID[iter],url_brainB) ))
+  load(url(paste0(url_sparkA, name_ID[iter],url_sparkB) ))
   set.seed(101)
   adjPval <- PvalDF[,2]
   names(adjPval) <- row.names(PvalDF)
@@ -39,6 +55,7 @@ for(iter in 1:n_ID){
   yList[[iter]] <- dlpfc$layer_guess_reordered
   posList[[iter]] <- cbind(dlpfc$row, dlpfc$col) 
 }
+
 
 ### Save seuList for 12 data##################
 saveRDS(seuList, file='Brain12_seuList.RDS')
@@ -65,7 +82,7 @@ getXList <- function(seuList, genelist){
     XList[[i]] <- Matrix::t(seuList[[i]]@assays$RNA@data[genelist,])
     indexList[[i]] <- (nr+1):(nrow(XList[[i]] )+nr)
     nr <- nr + nrow(XList[[i]] )
-    y <- seuList[[i]]$layer_guess_reordered
+    y <- as.character(seuList[[i]]$layer_guess_reordered)
     y[is.na(y)] <- "NA"
     yList[[i]] <- y
     posList[[i]] <- cbind(seuList[[i]]$row, seuList[[i]]$col)
@@ -76,6 +93,7 @@ getXList <- function(seuList, genelist){
               indxList=indexList))
 }
 
+
 datList <- getXList(seuList, genelist)
 saveRDS(datList, file='datList.RDS')
 
@@ -84,7 +102,6 @@ saveRDS(datList, file='datList.RDS')
 # Integration analysis using PRECAST --------------------------------------
 
 
-datList <- readRDS("datList.RDS")
 sapply(datList$XList, dim)
 XList <- datList$XList
 posList <- datList$posList
@@ -95,20 +112,34 @@ K_set <- 2:11; q <- 15
 tic <- proc.time() # 
 set.seed(1) ## parallel computing
 resList <- ICM.EM(XList, posList=posList, q=q, K=K_set, 
-                 platform = 'Visium',maxIter = 30,
-                 Sigma_equal =F, verbose=T,  coreNum=4, coreNum_int = 4)
+                  platform = 'Visium',maxIter = 30,
+                  Sigma_equal =F, verbose=T,  coreNum=10, coreNum_int = 10)
 toc <- proc.time()
 time_used <- toc[3] - tic[3] 
-save(resList,time_used, file ="idrsc_chooseK_brain12.rds")
-load("idrsc_chooseK_brain12.rds")
-reslist <- selectModel(resList)
 
+
+reslist <- SelectModel(resList)
+
+### Calculate the metrics for clustering
+
+
+
+
+ari_idrsc_vec <- sapply(1:12, function(r) cluster_metric(yList[[r]], reslist$cluster[[r]]))
+nmi_idrsc_vec <- sapply(1:12, function(r) cluster_metric(yList[[r]], as.vector(reslist$cluster[[r]]), type='NMI'))
+
+anMat <- cbind(ARI=ari_idrsc_vec, NMI=nmi_idrsc_vec)
+print(anMat)
 
 
 ari_idrsc <- cluster_metric(unlist(reslist$cluster), unlist(yList), type='ARI')
 nmi_idrsc <- cluster_metric(unlist(reslist$cluster), unlist(yList), type='NMI')
 cluster_idrsc <- reslist$cluster
-save(ari_idrsc, nmi_idrsc, cluster_idrsc, file='Brain12_metric_cluster10_idrsc.rds')
+save(ari_idrsc, nmi_idrsc, cluster_idrsc,
+     nmi_idrsc_vec, nmi_idrsc_vec, file='Brain12_metric_cluster10_idrsc.rds')
+
+
+
 
 ## Get hZ, tSNE and ConCor
 hZ_idrsc10 <- matlist2mat(reslist$hZ)

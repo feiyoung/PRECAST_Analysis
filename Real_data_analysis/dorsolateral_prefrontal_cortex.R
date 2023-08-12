@@ -113,7 +113,7 @@ tic <- proc.time() #
 set.seed(1) ## parallel computing
 resList <- ICM.EM(XList, posList=posList, q=q, K=K_set, 
                   platform = 'Visium',maxIter = 30,
-                  Sigma_equal =F, verbose=T,  coreNum=10, coreNum_int = 10)
+                  Sigma_equal =F, verbose=T,  coreNum=5, coreNum_int = 5)
 toc <- proc.time()
 time_used <- toc[3] - tic[3] 
 

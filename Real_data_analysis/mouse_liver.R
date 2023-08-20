@@ -1,7 +1,9 @@
 library(PRECAST)
 library(Seurat)
 
-seulist <- readRDS("seulist_mouseLiverST8.RDS")
+dir_url <- "https://github.com/feiyoung/PRECAST_Analysis/raw/main/Real_data_analysis/data/seulist_mouseLiverST8.RDS"
+
+seulist <- readRDS(url(dir_url))
 yList <- lapply(seulist, function(x) x$cluster)
 table(unlist(yList)) ## K= 6
 save(yList, file='yList_mouseLiver8.rds')

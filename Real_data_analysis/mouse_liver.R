@@ -69,15 +69,15 @@ hZtsne_precast <- scater::calculateTSNE(t(hZ_idrsc))
 # Combined DEG analysis ---------------------------------------------------
 
 
-load("Housekeeping_Genes_Mouse.RData")
+data(Mouse_HK_genes, package='PRECAST')
 head(Mouse_HK_genes)
 ## find the housekeeping genes used in iDRSC model
 houseKeep <- intersect(genelist, Mouse_HK_genes$Gene )
 
 save(houseKeep, file="housekeep_genes_mouseLiver8.rds")
 
-reslist <- selectModel(resList, return_para_est=T)
-Rf <- attr(reslist, "fit")$Rf
+reslist <- SelectModel(resList, return_para_est=T)
+Rf <- reslist$Rf
 get_correct_exp <- PRECAST:::get_correct_exp
 hX <- get_correct_exp(XList, Rf, houseKeep)
 colnames(hX) <- firstup(colnames(hX))

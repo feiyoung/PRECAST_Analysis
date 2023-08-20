@@ -11,7 +11,7 @@ genelist <- row.names(seulist[[1]])
 getXList <- PRECAST:::getXList
 datList <- getXList(seulist, genelist)
 
-AdjList <- pbapply::pblapply(datList$posList, DR.SC::getAdj_auto)
+AdjList <- pbapply::pblapply(datList$posList, DR.SC::getAdj_auto, radius.upper= 10)
 
 XList <- lapply(datList$XList, scale, scale=F)
 
@@ -32,11 +32,26 @@ toc <- proc.time()
 (time_used <- toc[3] - tic[3]) 
 save(resList, time_used, file='resList_idrsc_chooseK_mouseLiverST8.rds')
 
-reslist <- selectModel(resList)
+reslist <- SelectModel(resList)
 
 
 clusterList <- reslist$cluster
 save(clusterList, file='idrsc_cluster7_mouseLiver8.rds')
+cluster_metric <- function(hy, y, type='ARI'){
+  
+  require(mclust)
+  require(aricode)
+  switch(type, 
+         ARI= adjustedRandIndex(hy, y),
+         NMI = NMI(as.vector(hy), y))
+}
+combine_metric <- c(ARI=cluster_metric(unlist(reslist$cluster), unlist(yList)),
+ NMI=cluster_metric(unlist(reslist$cluster), unlist(yList), type="NMI"))
+combine_metric
+sep_metric <- sapply(1:8, function(j) cluster_metric((reslist$cluster[[j]]), (yList[[j]])))
+sep_metric
+
+
 posList <- datList$posList
 save(posList, file="posList_mouseLiver8.rds")
 matlist2mat <- PRECAST:::matlist2mat

@@ -1,5 +1,3 @@
-
-
 library(DR.SC)
 library(Seurat)
 library(Matrix)
@@ -12,7 +10,7 @@ seuList <- list()
 for(iter in 1: 4){
   # iter <- 1
   message("iter = ", iter)
-  hcc <- readRDS(paste0(url_hcc,"HCC", iter, "_seu.RDS"))
+  hcc <- readRDS(url(paste0(url_hcc,"HCC", iter, "_seu.RDS")))
   seuList[[iter]] <- hcc
   posList[[iter]] <- cbind(row=hcc$row, col=hcc$col)
 }
@@ -43,8 +41,7 @@ posList <- datList$posList
 indexList <- datList$indxList
 
 ## Integration analysis using PRECAST ############################################################
-q <- 15; K <- 9# 2:11
-# Integrate 12 samples
+q <- 15; K <- 2:11
 tic <- proc.time() # 
 set.seed(1)
 resList <- ICM.EM(XList, posList=posList, q=q, K=K, 

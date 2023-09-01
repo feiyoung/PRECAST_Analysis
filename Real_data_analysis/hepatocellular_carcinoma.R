@@ -1,52 +1,49 @@
+
+
 library(DR.SC)
 library(Seurat)
 library(Matrix)
 library(dplyr)
 library(PRECAST)
 
+url_hcc <- "https://github.com/feiyoung/PRECAST_Analysis/raw/main/Real_data_analysis/data/"
 posList <- list()
-spaFeatureList <- list()
 seuList <- list()
 for(iter in 1: 4){
   # iter <- 1
-  
-  cat('input HCC data', iter, '\n')
-  # load and read data
-  hcc <- read10XVisium(paste0("./HCC", iter))
-  load(paste0("./hcc", iter,"_spark.Rdata") )
-  set.seed(101)
-  adjPval <- PvalDF[,2]
-  names(adjPval) <- row.names(PvalDF)
-  sort_adjPval <- sort(adjPval)
-  posList[[iter]] <- cbind(hcc$row, hcc$col) 
+  message("iter = ", iter)
+  hcc <- readRDS(paste0(url_hcc,"HCC", iter, "_seu.RDS"))
   seuList[[iter]] <- hcc
-  rm(hcc)
-  spaFeatureList[[iter]] <- names(sort_adjPval)
+  posList[[iter]] <- cbind(row=hcc$row, col=hcc$col)
 }
 
 ### Save seuList for HCC4 data##################
 saveRDS(seuList, file='HCC4_seuList.RDS')
 save(posList, file = 'HCC4_posList.rds')
-save(spaFeatureList, file = 'HCC4_spatialFeatureList.rds')
 
+load('HCC4_spatialFeatureList.rds')
+
+selectIntFeatures <- PRECAST:::selectIntFeatures
+getXList <- PRECAST:::getXList
 
 genelist <- selectIntFeatures(seuList, spaFeatureList)
 length(unique(genelist))
 save(genelist, file='HCC4_genelist2000.rds')
 
+
 datList <- getXList(seuList, genelist)
 saveRDS(datList, file='HCC4_datList.RDS')
 
 metadataList <- lapply(seuList, function(x) x@meta.data)
-
 save(metadataList, file='metadataList_hcc4.rds')
+
 
 XList <- datList$XList
 posList <- datList$posList
 indexList <- datList$indxList
 
 ## Integration analysis using PRECAST ############################################################
-q <- 15; K <- 2:11
+q <- 15; K <- 9# 2:11
 # Integrate 12 samples
 tic <- proc.time() # 
 set.seed(1)
@@ -57,8 +54,10 @@ toc <- proc.time()
 time_used_chooseK <- toc[3] - tic[3] 
 
 save(time_used_chooseK, resList, file ="idrsc_HCC4_chooseK.rds")  
-reslist <- selectModel(resList)
+reslist <- SelectModel(resList)
 
+## Export this function
+matlist2mat <- PRECAST:::matlist2mat
 
 hZ_idrsc_K9 <- matlist2mat(reslist$hZ)
 set.seed(1)
